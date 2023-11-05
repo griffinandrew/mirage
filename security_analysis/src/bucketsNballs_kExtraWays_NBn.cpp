@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <queue> //used for max heap
+
+#include <unordered_map> //not sure how to use max heap effectively to traxck most freq?, perhaps just max count and then search thru buckets to determine mapping// but then why not just loop thru all bucks to detemine lowest and highest, not sure how to best use ds for this?
 
 #include "mtrand.h"
 
@@ -10,7 +13,7 @@
 // COMMAND-LINE ARGUMENTS
 /////////////////////////////////////////////////////
 //argv[1] : EXTRA TAGS PER SET (PER SKEW)
-int EXTRA_BUCKET_CAPACITY = 5;
+int EXTRA_BUCKET_CAPACITY = 2;  //set extra tags to 2
 
 //argv[2] : NUMBER OF BALLS THROWN
 int NUM_BILLION_TRIES = 1;
@@ -51,7 +54,8 @@ int SPILL_THRESHOLD = BALLS_PER_BUCKET + EXTRA_BUCKET_CAPACITY;
 #define BREAK_TIES_PREFERENTIALLY      (0)
 
 //Experiment Size
-#define BILLION_TRIES             (1000*1000*1000)
+//#define BILLION_TRIES             (1000*1000*1000)
+#define BILLION_TRIES (1000*1000) //thus is 1 bill i tihnk 
 #define HUNDRED_MILLION_TRIES     (100*1000*1000)
 
 //Types
@@ -87,6 +91,19 @@ bool init_buckets_done = false;
 
 //Mersenne Twister Rand Generator
 MTRand *mtrand=new MTRand();
+
+//max heap to track most used bucket
+std::priority_queue<uns64> maxHeap;
+
+
+//max and min number of balls
+uns64 max_balls = 0;
+uns64 min_balls_1 = 100000000;
+
+
+int max_buck;
+
+int min_buck;
 
 /////////////////////////////////////////////////////
 // FUNCTIONS - Ball Insertion, Removal, Spill, etc.
@@ -188,6 +205,9 @@ uns insert_ball(uns64 ballID){
     spill_ball(index,ballID);   
   }
 
+  //add to max queue now to track distribution
+  //maxHeap.push(index);
+
   // Return num-balls in bucket where new ball inserted.
   return retval;  
 }
@@ -287,6 +307,71 @@ void init_buckets(void){
   init_buckets_done = true;
 }
 
+
+
+
+void determine_ordering(void) {
+  uns s_count[MAX_FILL+1];
+  uns ii;
+  uns64 max_balls = 0;
+  uns64 min_balls_1 = 100000000;
+  for(ii=0; ii<= MAX_FILL; ii++){
+    s_count[ii]=0;
+  }
+
+  for(ii=0; ii< NUM_BUCKETS; ii++){
+    s_count[bucket[ii]]++;
+  }
+
+  for(ii=0; ii<= MAX_FILL; ii++) {
+    if (s_count[ii] == 0) {
+	continue;
+    }
+    else{	
+	if(max_balls < s_count[ii]) {
+	  max_balls = s_count[ii]; 
+	  max_buck = ii;
+	}
+        if(min_balls_1 > s_count[ii]) {
+	  min_balls_1 =  s_count[ii];  
+	  min_buck = ii;
+	}
+
+    	//printf("max:  %u\n",s_count[ii]);
+    }
+  }
+   printf("max:  %d\n",max_buck);
+   printf("min:  %d\n",min_buck);
+
+} 
+
+
+/*
+void determine_ordering(void) {
+  //uns64 max_balls = 0;
+  uns64 num_balls = 0;
+  //uns64 min_balls_1 = 100000000; make these global
+  for(int ii=0; ii<NUM_BUCKETS; ii++){
+    num_balls = bucket[ii];
+    //printf("num_balls:  %llu\n",num_balls);
+    if (num_balls > max_balls) {
+       max_balls = num_balls;
+       max_buck = ii;
+    }
+    if (num_balls < min_balls_1) { //possibly elif?
+       min_balls_1 = num_balls;
+       min_buck = ii; 
+    }
+    //printf("max:  %llu\n",max_balls);
+    //printf("min:  %llu\n",min_balls_1);
+  }
+   printf("max:  %d\n",max_buck);
+   printf("min:  %d\n",min_buck);
+}
+
+
+*/
+
 /////////////////////////////////////////////////////
 // Randomly remove a ball and
 // then insert a new ball with Power-of-Choices Install
@@ -306,8 +391,44 @@ uns  remove_and_insert(void){
     exit(-1);
   }
 
-  //printf("Res: %u\n", res);
+ // printf("Res: %u\n", res);
+ //determine_ordering();
+
   return res;
+}
+
+
+///////////////////////////////////////////////////////////
+//use a max heap to keep track of element that is most full
+//preemptively redistrubute to less used bucket
+// possibly use a min heap to do this or incurr the cost of lookup
+// ////////////////////////////////////////////////
+//
+// in second thought: just determine ordering order by search? terrible performance tho :(
+
+
+/*
+void determine_ordering(void) {
+  //uns64 max_balls = 0;
+  uns64 num_balls = 0;
+  //uns64 min_balls_1 = 100000000; make these global
+  for(int ii=0; ii<NUM_BUCKETS; ii++){
+    num_balls = bucket[ii];
+    if (num_balls > max_balls) {
+       max_balls = num_balls;
+    }
+    if (num_balls < min_balls_1) { //possibly elif?
+       min_balls_1 = num_balls; 
+    }
+  }
+}
+*/
+
+
+
+void display_min_max(void){
+   printf("max:  %llu\n",max_balls);
+   printf("min:  %llu\n",min_balls_1);
 }
 
 
@@ -349,12 +470,16 @@ int main(int argc, char* argv[]){
         remove_and_insert();      
       }
       printf(".");fflush(stdout);
+      determine_ordering();
     }    
     //Ensure Total Balls in Buckets is Conserved.
     sanity_check();
     //Print count of Balls Thrown.
-    printf(" %dBn\n",bn_i+1);fflush(stdout);    
+    printf(" %llu\n",bn_i+1);fflush(stdout);    
   }
+  determine_ordering();
+  //display_min_max(); //just check to see if works 
+  
 
   printf("\n\nBucket-Occupancy Snapshot at End of Experiment\n");
   display_histogram();
@@ -364,7 +489,7 @@ int main(int argc, char* argv[]){
   printf("\nOccupancy: \t\t %16s \t P(Bucket=k balls)","Count");
   for(ii=0; ii<= MAX_FILL; ii++){
     double perc = 100.0 * (double)bucket_fill_observed[ii]/(NUM_SKEWS*(double)NUM_BILLION_TRIES*(double)BILLION_TRIES);
-    printf("\nBucket[%2u Fill]: \t %16llu \t (%5.3f)", ii, bucket_fill_observed[ii], perc);
+    printf("\nBucket[%llu Fill]: \t %16llu \t (%5.3f)", ii, bucket_fill_observed[ii], perc);
   }
 
   printf("\n\n\n");
