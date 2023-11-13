@@ -4,11 +4,11 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <queue> //used for max heap
-
-#include <unordered_map> //not sure how to use max heap effectively to traxck most freq?, perhaps just max count and then search thru buckets to determine mapping// but then why not just loop thru all bucks to detemine lowest and highest, not sure how to best use ds for this?
-
+#include <tuple>
 #include "mtrand.h"
 
+
+using namespace std;
 /////////////////////////////////////////////////////
 // COMMAND-LINE ARGUMENTS
 /////////////////////////////////////////////////////
@@ -69,8 +69,10 @@ typedef double dbl;
 /////////////////////////////////////////////////////
 
 //For each Bucket (Set), number of Balls in Bucket
-//(Data-Structure Similar to Tag-Store)
-uns64 bucket[NUM_BUCKETS];
+//(Data-Structure Similar to Tag-Store
+//)
+//modify the array to be an array of vecotrs s.t. can contain pointer to max heap entry, as well as pointers to all balls in that bucket
+vector<uns64> bucket[NUM_BUCKETS];
 
 //For each Ball (Cache-Line), which Bucket (Set) it is in
 //(Data-Structure Similar to Data-Store RPTR)
@@ -92,18 +94,22 @@ bool init_buckets_done = false;
 //Mersenne Twister Rand Generator
 MTRand *mtrand=new MTRand();
 
-//max heap to track most used bucket
-std::priority_queue<uns64> maxHeap;
+//max heap to track most used bucket first elemenet is the bucket entry, second is the count
+//std::priority_queue<tuple<uns, uns64>, vector<tuple<uns, uns64>>, tuple_comparator> maxHeap; //define a max heap that stores buckets
 
 
-//max and min number of balls
-uns64 max_balls = 0;
-uns64 min_balls_1 = 100000000;
 
+//count of balls in each bucket used to determine orderingx
+struct tuple_comparator {
+    bool operator()(const tuple<uns, uns64>& t1, const tuple<uns, uns64>& t2) const {
+        // Compare based on the (count) of the tuple second item
+        return get<1>(t1) < get<1>(t2);
+    }
+};
 
-int max_buck;
+//max heap to track most used bucket first elemenet is the bucket entry, second is the count
+std::priority_queue<tuple<uns, uns64>, vector<tuple<uns, uns64>>, tuple_comparator> maxHeap; //define a max heap that stores buckets
 
-int min_buck;
 
 /////////////////////////////////////////////////////
 // FUNCTIONS - Ball Insertion, Removal, Spill, etc.
@@ -118,7 +124,7 @@ int min_buck;
 void spill_ball(uns64 index, uns64 ballID){
   uns done=0;
 
-  bucket[index]--;
+  bucket[index].at(0)--; //assuming 0 is the count, dec count
 
   while(done!=1){
     //Pick skew & bucket-index where spilled ball should be placed.
@@ -130,13 +136,13 @@ void spill_ball(uns64 index, uns64 ballID){
       spill_index = mtrand->randInt(NUM_BUCKETS_PER_SKEW-1);
 
     //If new spill_index bucket where spilled-ball is to be installed has space, then done.
-    if(bucket[spill_index] < SPILL_THRESHOLD){
+    if(bucket[spill_index].at(0) < SPILL_THRESHOLD){
       done=1;
-      bucket[spill_index]++;
+      bucket[spill_index].at(0)++;
       balls[ballID] = spill_index;
      
     } else {
-      assert(bucket[spill_index] == SPILL_THRESHOLD);
+      assert(bucket[spill_index].at(0) == SPILL_THRESHOLD);
       //if bucket of spill_index is also full, then recursive-spill, we call this a cuckoo-spill
       index = spill_index;
       cuckoo_spill_count++;
@@ -160,8 +166,8 @@ uns insert_ball(uns64 ballID){
 
   //Increments Tracking of Indexed Buckets
   if(init_buckets_done){
-    bucket_fill_observed[bucket[index1]]++;
-    bucket_fill_observed[bucket[index2]]++;
+    bucket_fill_observed[bucket[index1].at(0)]++;
+    bucket_fill_observed[bucket[index2].at(0)]++;
   }
     
   uns64 index;
@@ -169,11 +175,11 @@ uns insert_ball(uns64 ballID){
 
   //------ LOAD AWARE SKEW SELECTION -----
   //Identify which Bucket (index) has Less Load
-  if(bucket[index2] < bucket[index1]){
+  if(bucket[index2].at(0) < bucket[index1].at(0)){
     index = index2;
-  } else if (bucket[index1] < bucket[index2]){
+  } else if (bucket[index1].at(0) < bucket[index2].at(0)){
     index = index1;    
-  } else if (bucket[index2] == bucket[index1]) {
+  } else if (bucket[index2].at(0) == bucket[index1].at(0)) {
 
 #if BREAK_TIES_PREFERENTIALLY == 0
     //Break ties randomly
@@ -192,8 +198,8 @@ uns insert_ball(uns64 ballID){
   }
 
   //Increments count for Bucket where Ball Inserted 
-  retval = bucket[index];
-  bucket[index]++;
+  retval = bucket[index].at(0);
+  bucket[index].at(0)++;
 
   //Track which bucket the new Ball was inserted in
   assert(balls[ballID] == (uns64)-1);
@@ -225,8 +231,8 @@ uns64 remove_ball(void){
   uns64 bucket_index = balls[ballID];
 
   // Update Ball Tracking
-  assert(bucket[bucket_index] != 0 );  
-  bucket[bucket_index]--;
+  assert(bucket[bucket_index].at(0) != 0 );  
+  bucket[bucket_index].at(0)--;
   balls[ballID] = -1;
 
   // Return BallID removed (ID will be reused for new ball to be inserted)  
@@ -245,7 +251,7 @@ void display_histogram(void){
   }
 
   for(ii=0; ii< NUM_BUCKETS; ii++){
-    s_count[bucket[ii]]++;
+    s_count[bucket[ii].at(0)]++;
   }
 
   //  printf("\n");
@@ -270,10 +276,9 @@ void sanity_check(void){
   }
   
   for(ii=0; ii< NUM_BUCKETS; ii++){
-    count += bucket[ii];
-    s_count[bucket[ii]]++;
+    count += bucket[ii].at(0);
+    s_count[bucket[ii].at(0)]++;
   }
-
 
   if(count != (NUM_BUCKETS*BALLS_PER_BUCKET)){
     printf("\n*** Sanity Check Failed, TotalCount: %u*****\n", count);
@@ -286,14 +291,16 @@ void sanity_check(void){
 
 void init_buckets(void){
   uns64 ii;
-
   assert(NUM_SKEWS * NUM_BUCKETS_PER_SKEW == NUM_BUCKETS);
   
   for(ii=0; ii<NUM_BUCKETS; ii++){
-    bucket[ii]=0;
+    bucket[ii].push_back(0); //add 0 to first entry in all vectors
   }
- 
 
+  //for(ii=0; ii<NUM_BUCKETS; ii++){
+  //  bucket[ii].at(0)=0;
+  //}
+ 
   for(ii=0; ii<(NUM_BUCKETS*BALLS_PER_BUCKET); ii++){
     balls[ii] = -1;
     insert_ball(ii);
@@ -308,8 +315,7 @@ void init_buckets(void){
 }
 
 
-
-
+/*
 void determine_ordering(void) {
   uns s_count[MAX_FILL+1];
   uns ii;
@@ -345,7 +351,7 @@ void determine_ordering(void) {
 
 } 
 
-
+*/
 /*
 void determine_ordering(void) {
   //uns64 max_balls = 0;
@@ -407,6 +413,15 @@ uns  remove_and_insert(void){
 // in second thought: just determine ordering order by search? terrible performance tho :(
 
 
+
+
+
+
+
+
+
+
+
 /*
 void determine_ordering(void) {
   //uns64 max_balls = 0;
@@ -425,11 +440,13 @@ void determine_ordering(void) {
 */
 
 
-
+/*
 void display_min_max(void){
    printf("max:  %llu\n",max_balls);
    printf("min:  %llu\n",min_balls_1);
 }
+
+*/
 
 
 
@@ -448,13 +465,16 @@ int main(int argc, char* argv[]){
   printf("Cache Configuration: %d MB, %d skews, %d ways (%d ways/skew)\n",CACHE_SZ_BYTES/1024/1024,NUM_SKEWS,NUM_SKEWS*BASE_WAYS_PER_SKEW,BASE_WAYS_PER_SKEW);
   printf("AVG-BALLS-PER-BUCKET:%d, BUCKET-SPILL-THRESHOLD:%d \n",BASE_WAYS_PER_SKEW,SPILL_THRESHOLD);
   printf("Simulation Parameters - BALL_THROWS:%llu, SEED:%d\n\n",(unsigned long long)NUM_BILLION_TRIES*(unsigned long long)BILLION_TRIES,myseed);
-  
+	
+  printf("config set\n");  
   uns64 ii;
   mtrand->seed(myseed);
 
   //Initialize Buckets
+  //
+  printf("before init\n");
   init_buckets();
-
+  printf(" done init\n");
   //Ensure Total Balls in Buckets is Conserved.
   sanity_check();
 
@@ -470,15 +490,12 @@ int main(int argc, char* argv[]){
         remove_and_insert();      
       }
       printf(".");fflush(stdout);
-      determine_ordering();
     }    
     //Ensure Total Balls in Buckets is Conserved.
     sanity_check();
     //Print count of Balls Thrown.
     printf(" %llu\n",bn_i+1);fflush(stdout);    
   }
-  determine_ordering();
-  //display_min_max(); //just check to see if works 
   
 
   printf("\n\nBucket-Occupancy Snapshot at End of Experiment\n");
@@ -509,5 +526,3 @@ int main(int argc, char* argv[]){
 
   return 0;
 }
-
-
