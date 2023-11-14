@@ -7,6 +7,7 @@
 #include <tuple>
 #include "mtrand.h"
 #include <any>
+#include <algorithm>
 
 #include "updatable_priority_queue.h"
 
@@ -112,7 +113,7 @@ MTRand *mtrand=new MTRand();
 //max heap to track most used bucket first elemenet is the bucket entry, second is the count
 //std::priority_queue<tuple<uns, uns64>, vector<tuple<uns, uns64>>, tuple_comparator> maxHeap; //define a max heap that stores buckets
 
-better_priority_queue::updatable_priority_queue<bucket_tuple*, vector<bucket_tuple*>> maxHeap_1;
+//better_priority_queue::updatable_priority_queue<bucket_tuple*, vector<bucket_tuple*>> maxHeap_1;
 
 
 
@@ -185,7 +186,7 @@ public:
 */
 
 
-
+/*
 class CustomPriorityQueue {
 private:
     std::priority_queue<bucket_tuple*, std::vector<bucket_tuple*>, tuple_comparator> maxHeap1;
@@ -202,10 +203,7 @@ public:
 
     // Remove a specific element from the priority queue
     void removeElement(const bucket_tuple& value) {
-        auto it = std::find(container.begin(), container.end(),
-                               [&](const bucket_tuple* t) {
-                                   return *t == value;
-                               });
+        auto it = std::find_if(container.begin(), container.end(),[&](const bucket_tuple* t) { return *t == value; });
 
         if (it != container.end()) {
             maxHeap1 = std::priority_queue<bucket_tuple*, std::vector<bucket_tuple*>, tuple_comparator>(container.begin(), container.end());
@@ -235,6 +233,22 @@ public:
         }
     }
 };
+CustomPriorityQueue maxHeap1;
+*/
+
+
+
+class CustomPriorityQueue : public std::priority_queue<bucket_tuple*, std::vector<bucket_tuple*>, tuple_comparator> {
+private:
+};
+
+
+CustomPriorityQueue maxHeap1;
+
+
+
+
+
 /////////////////////////////////////////////////////
 // FUNCTIONS - Ball Insertion, Removal, Spill, etc.
 /////////////////////////////////////////////////////
@@ -481,7 +495,7 @@ void init_heap(void){
     //maxHeap.push(make_tuple(j, bucket[j].at(0));
     uns64 count = bucket[j].at(0).count;
     bucket_tuple* mytuple = new bucket_tuple(j, count);
-    maxHeap.push(mytuple);
+    maxHeap1.push(mytuple);
     bucket[j].at(1).tuple_ptr = mytuple;
     //buckets_tuple* ptr = &
     //bucket[j].at(1).tuple_ptr = mytuple;
@@ -492,7 +506,7 @@ void init_heap(void){
 
 
 void get_max_element(void){
-  bucket_tuple* maxElement = maxHeap.top();
+  bucket_tuple* maxElement = maxHeap1.top();
   uns index = get<0>(*maxElement);
   uns64 count = get<1>(*maxElement);
   cout << "Max Element: Index = " << index << ", Count = " << count << endl;
@@ -500,12 +514,12 @@ void get_max_element(void){
 
 
 void display_max_heap_elements(void){
-  while (!maxHeap.empty()) {
-    bucket_tuple* maxElement = maxHeap.top();
+  while (!maxHeap1.empty()) {
+    bucket_tuple* maxElement = maxHeap1.top();
     uns index = get<0>(*maxElement);
     uns64 count = get<1>(*maxElement);
     cout << "Heap Element: Index = " << index << ", Count = " << count << endl;
-    maxHeap.pop();
+    maxHeap1.pop();
   }
 }
 
@@ -606,16 +620,6 @@ uns  remove_and_insert(void){
 // ////////////////////////////////////////////////
 //
 // in second thought: just determine ordering order by search? terrible performance tho :(
-
-
-
-
-
-
-
-
-
-
 
 /*
 void determine_ordering(void) {
