@@ -9,8 +9,6 @@
 #include <any>
 #include <algorithm>
 
-#include "updatable_priority_queue.h"
-
 using namespace std;
 /////////////////////////////////////////////////////
 // COMMAND-LINE ARGUMENTS
@@ -66,7 +64,6 @@ typedef unsigned int uns;
 typedef unsigned long long uns64;
 typedef double dbl;
 
-
 /////////////////////////////////////////////////////
 // EXPERIMENT VARIABLES
 /////////////////////////////////////////////////////
@@ -74,10 +71,15 @@ typedef double dbl;
 //For each Bucket (Set), number of Balls in Bucket
 //(Data-Structure Similar to Tag-Store
 //)
-//modify the array to be an array of vecotrs s.t. can contain pointer to max heap entry, as well as pointers to all balls in that bucket
-//using bucket_element = std::variant<uns64, tuple<uns, uns64>*>;
 
-using bucket_tuple = tuple<uns, uns64>;
+
+
+struct bucket_tuple {
+  uns count;
+  uns64 index;
+};
+
+// using bucket_tuple = tuple<uns, uns64>;
 
 union bucket_value {
     uns count;
@@ -103,18 +105,11 @@ uns64 cuckoo_spill_count = 0;
 //Tracks if Initialization of Buckets Done
 bool init_buckets_done = false;
 
-
 //track if heap is created
 bool init_heap_done = false;
 
 //Mersenne Twister Rand Generator
 MTRand *mtrand=new MTRand();
-
-//max heap to track most used bucket first elemenet is the bucket entry, second is the count
-//std::priority_queue<tuple<uns, uns64>, vector<tuple<uns, uns64>>, tuple_comparator> maxHeap; //define a max heap that stores buckets
-
-//better_priority_queue::updatable_priority_queue<bucket_tuple*, vector<bucket_tuple*>> maxHeap_1;
-
 
 //count of balls in each bucket used to determine orderingx
 struct tuple_comparator {
@@ -128,6 +123,60 @@ struct tuple_comparator {
 std::priority_queue<bucket_tuple*, vector<bucket_tuple*>, tuple_comparator> maxHeap; //define a max heap that stores buckets
 
 
+class GriffinsAwesomePriorityQueue {
+public:
+  // Called when count is incremented.
+  void heapify_upwards(uns64 index) {
+    if (index == 0) {
+      return;
+    }
+
+    uns64 parent_index = (index - 1) / 2;
+    if (storage_[index]->count > storage_[parent_index]->count) {
+      swap_elements(index, parent_index);
+      heapify_upwards(parent_index);
+    }
+  }
+
+  // Called when count is decremented.
+  void heapify_downwards(uns64 index) {
+    uns64 size = storage_.size();
+    
+    uns64 max = index;
+    uns64 left_index = 2 * index + 1;
+    uns64 right_index = 2 * index + 2;
+
+    if (left_index < size && storage_[left_index]->count > storage_[max]->count) {
+      max = left_index;
+    }
+
+    if (right_index < size && storage_[right_index]->count > storage_[max]->count) {
+      max = right_index;
+    }
+
+    if (max != index) {
+      swap_elements(index, max);
+      heapify_downwards(max);
+    }
+  }
+
+  bucket_tuple *top() const {
+    return storage_[0];
+  }
+
+private:
+  void swap_elements(uns64 a, uns64 b) {
+    std::swap(storage_[a], storage_[b]);
+    std::swap(storage_[a]->index, storage_[b]->index);
+  }
+
+private:
+  vector<bucket_tuple*> storage_;
+};
+
+GriffinsAwesomePriorityQueue pq;
+
+
 /////////////////////////////////////////////////////
 // FUNCTIONS - Ball Insertion, Removal, Spill, etc.
 /////////////////////////////////////////////////////
@@ -137,6 +186,9 @@ std::priority_queue<bucket_tuple*, vector<bucket_tuple*>, tuple_comparator> maxH
 // -- Based on which skew spill happened;
 // -- cuckoo into other recursively.
 /////////////////////////////////////////////////////
+
+
+
 
 void spill_ball(uns64 index, uns64 ballID){
   uns done=0;
@@ -233,32 +285,11 @@ uns insert_ball(uns64 ballID){
     spill_ball(index,ballID);   
   }
 
-  //add to max queue now to track distribution
-  //maxHeap.push(index);
-  //bucket_tuple* tuple_ptr= bucket[index].at(1).tuple_ptr;
-  //printf("here\n");
-  //bucket_tuple& original_tuple = *tuple_ptr;
-  //printf("here\n");
   if(init_heap_done == true) {
 
      bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
      get<1>(*tuple_ptr) = retval;
-     //make_heap(const_cast<bucket_tuple**>(&maxHeap.top()), const_cast<bucket_tuple**>(&maxHeap.top()) + maxHeap.size(), tuple_comparator());
-
-     
-     //printf("Before: %p\n", (void*)bucket[index].at(1).tuple_ptr);
-     //get<1>(*bucket[index].at(1).tuple_ptr) = retval;
-     //std::cout << "Value: " << get<1>(*(bucket[index].at(1).tuple_ptr)) << std::endl;
-     //std::cout << "index: " << get<0>(*(bucket[index].at(1).tuple_ptr)) << std::endl;
   }
-  //printf("Before: %p\n", (void*)bucket[index].at(1).tuple_ptr);
-  //get<1>(*bucket[index].at(1).tuple_ptr) = retval; //set the current value of the tuple count equal to the curr count
-  //bucket_tuple* tuple_ptr = &buckets[index].at(1).t
-  //printf("here\n");
-
-
-  
-  // Return num-balls in bucket where new ball inserted.
   return retval;  
 }
 
@@ -348,11 +379,6 @@ void init_buckets(void){
     bucket_value null_value = {0};
     bucket[ii].push_back(null_value); //add empty entry in all buckets to place pointer to heap tuple
   }
-  //printf("done in pushback\n");
-
-  //for(ii=0; ii<NUM_BUCKETS; ii++){
-  //  bucket[ii].at(0)=0;
-  //}
  
   for(ii=0; ii<(NUM_BUCKETS*BALLS_PER_BUCKET); ii++){
     balls[ii] = -1;
@@ -368,13 +394,12 @@ void init_buckets(void){
 }
 
 
-
 void init_heap(void){
   for (uns64 j=0; j<NUM_BUCKETS; ++j){
     //maxHeap.push(make_tuple(j, bucket[j].at(0));
     uns64 count = bucket[j].at(0).count;
     bucket_tuple* mytuple = new bucket_tuple(j, count);
-    maxHeap1.push(mytuple);
+    maxHeap.push(mytuple);
     bucket[j].at(1).tuple_ptr = mytuple;
     //buckets_tuple* ptr = &
     //bucket[j].at(1).tuple_ptr = mytuple;
@@ -385,7 +410,7 @@ void init_heap(void){
 
 
 void get_max_element(void){
-  bucket_tuple* maxElement = maxHeap1.top();
+  bucket_tuple* maxElement = maxHeap.top();
   uns index = get<0>(*maxElement);
   uns64 count = get<1>(*maxElement);
   cout << "Max Element: Index = " << index << ", Count = " << count << endl;
@@ -393,78 +418,16 @@ void get_max_element(void){
 
 
 void display_max_heap_elements(void){
-  while (!maxHeap1.empty()) {
-    bucket_tuple* maxElement = maxHeap1.top();
+  while (!maxHeap.empty()) {
+    bucket_tuple* maxElement = maxHeap.top();
     uns index = get<0>(*maxElement);
     uns64 count = get<1>(*maxElement);
     cout << "Heap Element: Index = " << index << ", Count = " << count << endl;
-    maxHeap1.pop();
+    maxHeap.pop();
   }
 }
 
 
-/*
-void determine_ordering(void) {
-  uns s_count[MAX_FILL+1];
-  uns ii;
-  uns64 max_balls = 0;
-  uns64 min_balls_1 = 100000000;
-  for(ii=0; ii<= MAX_FILL; ii++){
-    s_count[ii]=0;
-  }
-
-  for(ii=0; ii< NUM_BUCKETS; ii++){
-    s_count[bucket[ii]]++;
-  }
-
-  for(ii=0; ii<= MAX_FILL; ii++) {
-    if (s_count[ii] == 0) {
-	continue;
-    }
-    else{	
-	if(max_balls < s_count[ii]) {
-	  max_balls = s_count[ii]; 
-	  max_buck = ii;
-	}
-        if(min_balls_1 > s_count[ii]) {
-	  min_balls_1 =  s_count[ii];  
-	  min_buck = ii;
-	}
-
-    	//printf("max:  %u\n",s_count[ii]);
-    }
-  }
-   printf("max:  %d\n",max_buck);
-   printf("min:  %d\n",min_buck);
-
-} 
-
-*/
-/*
-void determine_ordering(void) {
-  //uns64 max_balls = 0;
-  uns64 num_balls = 0;
-  //uns64 min_balls_1 = 100000000; make these global
-  for(int ii=0; ii<NUM_BUCKETS; ii++){
-    num_balls = bucket[ii];
-    //printf("num_balls:  %llu\n",num_balls);
-    if (num_balls > max_balls) {
-       max_balls = num_balls;
-       max_buck = ii;
-    }
-    if (num_balls < min_balls_1) { //possibly elif?
-       min_balls_1 = num_balls;
-       min_buck = ii; 
-    }
-    //printf("max:  %llu\n",max_balls);
-    //printf("min:  %llu\n",min_balls_1);
-  }
-   printf("max:  %d\n",max_buck);
-   printf("min:  %d\n",min_buck);
-}
-
-
-*/
 
 /////////////////////////////////////////////////////
 // Randomly remove a ball and
@@ -485,9 +448,6 @@ uns  remove_and_insert(void){
     exit(-1);
   }
 
- // printf("Res: %u\n", res);
- //determine_ordering();
-
   return res;
 }
 
@@ -499,33 +459,6 @@ uns  remove_and_insert(void){
 // ////////////////////////////////////////////////
 //
 // in second thought: just determine ordering order by search? terrible performance tho :(
-
-/*
-void determine_ordering(void) {
-  //uns64 max_balls = 0;
-  uns64 num_balls = 0;
-  //uns64 min_balls_1 = 100000000; make these global
-  for(int ii=0; ii<NUM_BUCKETS; ii++){
-    num_balls = bucket[ii];
-    if (num_balls > max_balls) {
-       max_balls = num_balls;
-    }
-    if (num_balls < min_balls_1) { //possibly elif?
-       min_balls_1 = num_balls; 
-    }
-  }
-}
-*/
-
-
-/*
-void display_min_max(void){
-   printf("max:  %llu\n",max_balls);
-   printf("min:  %llu\n",min_balls_1);
-}
-
-*/
-
 
 
 /////////////////////////////////////////////////////
