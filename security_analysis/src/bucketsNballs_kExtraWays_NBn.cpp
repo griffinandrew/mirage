@@ -8,6 +8,8 @@
 #include "mtrand.h"
 #include <any>
 
+#include "updatable_priority_queue.h"
+
 using namespace std;
 /////////////////////////////////////////////////////
 // COMMAND-LINE ARGUMENTS
@@ -110,6 +112,10 @@ MTRand *mtrand=new MTRand();
 //max heap to track most used bucket first elemenet is the bucket entry, second is the count
 //std::priority_queue<tuple<uns, uns64>, vector<tuple<uns, uns64>>, tuple_comparator> maxHeap; //define a max heap that stores buckets
 
+better_priority_queue::updatable_priority_queue<bucket_tuple*, vector<bucket_tuple*>> maxHeap_1;
+
+
+
 
 
 //count of balls in each bucket used to determine orderingx
@@ -124,6 +130,111 @@ struct tuple_comparator {
 std::priority_queue<bucket_tuple*, vector<bucket_tuple*>, tuple_comparator> maxHeap; //define a max heap that stores buckets
 
 
+/*
+
+
+class CustomPriorityQueue {
+private:
+    std::priority_queue<bucket_tuple*, std::vector<bucket_tuple*>, tuple_comparator> maxHeap_1;
+
+public:
+    // Insert an element into the priority queue
+    void insert(const bucket_tuple& value) {
+        bucket_tuple* tuple_ptr = new bucket_tuple(value);
+        maxHeap.push(tuple_ptr);
+        std::cout << "Inserted: (" << std::get<0>(value) << ", " << std::get<1>(value) << ")" << std::endl;
+    }
+
+    // Remove a specific element from the priority queue
+    void removeElement(const bucket_tuple& value) {
+        auto it = std::find_if(maxHeap.c.begin(), maxHeap.c.end(),
+                               [&](const bucket_tuple* t) {
+                                   return *t == value;
+                               });
+
+        if (it != maxHeap.c.end()) {
+            maxHeap.c.erase(it);
+            std::cout << "Removed element: (" << std::get<0>(value) << ", " << std::get<1>(value) << ")" << std::endl;
+        } else {
+            std::cout << "Element not found in the priority queue." << std::endl;
+        }
+    }
+
+    // Display the elements in the priority queue
+    void display() {
+        std::cout << "Priority Queue: ";
+        auto temp = maxHeap;
+        while (!temp.empty()) {
+            auto tuple = temp.top();
+            std::cout << "(" << std::get<0>(*tuple) << ", " << std::get<1>(*tuple) << ") ";
+            temp.pop();
+        }
+        std::cout << std::endl;
+    }
+
+    // Destructor to free memory allocated for tuples
+    ~CustomPriorityQueue() {
+        while (!maxHeap.empty()) {
+            delete maxHeap.top();
+            maxHeap.pop();
+        }
+    }
+};
+
+
+*/
+
+
+
+class CustomPriorityQueue {
+private:
+    std::priority_queue<bucket_tuple*, std::vector<bucket_tuple*>, tuple_comparator> maxHeap1;
+    std::vector<bucket_tuple*> container; // Separate container for elements
+
+public:
+    // Insert an element into the priority queue
+    void insert(const bucket_tuple& value) {
+        bucket_tuple* tuple_ptr = new bucket_tuple(value);
+        maxHeap1.push(tuple_ptr);
+        container.push_back(tuple_ptr);
+        std::cout << "Inserted: (" << std::get<0>(value) << ", " << std::get<1>(value) << ")" << std::endl;
+    }
+
+    // Remove a specific element from the priority queue
+    void removeElement(const bucket_tuple& value) {
+        auto it = std::find(container.begin(), container.end(),
+                               [&](const bucket_tuple* t) {
+                                   return *t == value;
+                               });
+
+        if (it != container.end()) {
+            maxHeap1 = std::priority_queue<bucket_tuple*, std::vector<bucket_tuple*>, tuple_comparator>(container.begin(), container.end());
+            container.erase(it);
+            std::cout << "Removed element: (" << std::get<0>(value) << ", " << std::get<1>(value) << ")" << std::endl;
+        } else {
+            std::cout << "Element not found in the priority queue." << std::endl;
+        }
+    }
+
+    // Display the elements in the priority queue
+    void display() {
+        std::cout << "Priority Queue: ";
+        auto temp = maxHeap1;
+        while (!temp.empty()) {
+            auto tuple = temp.top();
+            std::cout << "(" << std::get<0>(*tuple) << ", " << std::get<1>(*tuple) << ") ";
+            temp.pop();
+        }
+        std::cout << std::endl;
+    }
+
+    // Destructor to free memory allocated for tuples
+    ~CustomPriorityQueue() {
+        for (auto tuple_ptr : container) {
+            delete tuple_ptr;
+        }
+    }
+};
 /////////////////////////////////////////////////////
 // FUNCTIONS - Ball Insertion, Removal, Spill, etc.
 /////////////////////////////////////////////////////
@@ -277,7 +388,7 @@ uns64 remove_ball(void){
 
   //update count when removed
   uns64 count = bucket[bucket_index].at(0).count;
-  //get<1>(*bucket[bucket_index].at(1).tuple_ptr) = count;
+  get<1>(*bucket[bucket_index].at(1).tuple_ptr) = count;
   
   // Return BallID removed (ID will be reused for new ball to be inserted)  
   return ballID;
