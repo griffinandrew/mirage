@@ -8,7 +8,7 @@ sensitivity : create_folder WaysPerSkew_16 WaysPerSkew_4
 # DEFINES
 #-------------------------
 CC=g++
-CFLAGS=-std=c++0x -O3 
+CFLAGS=-std=c++0x  -O3  
 
 create_folder:
 	mkdir -p  bin

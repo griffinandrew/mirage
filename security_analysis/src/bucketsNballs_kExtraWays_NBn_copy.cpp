@@ -114,14 +114,14 @@ MTRand *mtrand=new MTRand();
 
 //count of balls in each bucket used to determine orderingx
 struct tuple_comparator {
-    bool operator()(const bucket_tuple* t1, const bucket_tuple* t2) const {
+    bool operator()(const tuple<uns, uns64> t1, const tuple<uns, uns64>t2) const {
         // Compare based on the (count) of the tuple second item
-        return get<1>(*t1) < get<1>(*t2);
+        return get<1>(t1) < get<1>(t2);
     }
 };
 
 //max heap to track most used bucket first elemenet is the bucket entry, second is the count
-std::priority_queue<bucket_tuple*, vector<bucket_tuple*>, tuple_comparator> maxHeap; //define a max heap that stores buckets
+std::priority_queue<tuple<uns, uns64>, vector<tuple<uns, uns64>>, tuple_comparator> maxHeap; //define a max heap that stores buckets
 
 
 /////////////////////////////////////////////////////
@@ -236,14 +236,8 @@ uns insert_ball(uns64 ballID){
   //bucket_tuple& original_tuple = *tuple_ptr;
   //printf("here\n");
   if(init_heap_done == true) {
-
-     bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
-     get<1>(*tuple_ptr) = retval;
-     //make_heap(const_cast<bucket_tuple**>(&maxHeap.top()), const_cast<bucket_tuple**>(&maxHeap.top()) + maxHeap.size(), tuple_comparator());
-
-     
      //printf("Before: %p\n", (void*)bucket[index].at(1).tuple_ptr);
-     //get<1>(*bucket[index].at(1).tuple_ptr) = retval;
+     get<1>(*bucket[index].at(1).tuple_ptr) = retval;
      //std::cout << "Value: " << get<1>(*(bucket[index].at(1).tuple_ptr)) << std::endl;
      //std::cout << "index: " << get<0>(*(bucket[index].at(1).tuple_ptr)) << std::endl;
   }
@@ -277,7 +271,7 @@ uns64 remove_ball(void){
 
   //update count when removed
   uns64 count = bucket[bucket_index].at(0).count;
-  //get<1>(*bucket[bucket_index].at(1).tuple_ptr) = count;
+  get<1>(*bucket[bucket_index].at(1).tuple_ptr) = count;
   
   // Return BallID removed (ID will be reused for new ball to be inserted)  
   return ballID;
@@ -370,7 +364,7 @@ void init_heap(void){
     //maxHeap.push(make_tuple(j, bucket[j].at(0));
     uns64 count = bucket[j].at(0).count;
     bucket_tuple* mytuple = new bucket_tuple(j, count);
-    maxHeap.push(mytuple);
+    maxHeap.push(*mytuple);
     bucket[j].at(1).tuple_ptr = mytuple;
     //buckets_tuple* ptr = &
     //bucket[j].at(1).tuple_ptr = mytuple;
@@ -381,18 +375,18 @@ void init_heap(void){
 
 
 void get_max_element(void){
-  bucket_tuple* maxElement = maxHeap.top();
-  uns index = get<0>(*maxElement);
-  uns64 count = get<1>(*maxElement);
+  tuple<uns, uns64> maxElement = maxHeap.top();
+  uns index = get<0>(maxElement);
+  uns64 count = get<1>(maxElement);
   cout << "Max Element: Index = " << index << ", Count = " << count << endl;
 }
 
 
 void display_max_heap_elements(void){
   while (!maxHeap.empty()) {
-    bucket_tuple* maxElement = maxHeap.top();
-    uns index = get<0>(*maxElement);
-    uns64 count = get<1>(*maxElement);
+    tuple<uns, uns64> maxElement = maxHeap.top();
+    uns index = get<0>(maxElement);
+    uns64 count = get<1>(maxElement);
     cout << "Heap Element: Index = " << index << ", Count = " << count << endl;
     maxHeap.pop();
   }
