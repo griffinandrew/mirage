@@ -72,6 +72,7 @@ typedef double dbl;
 //(Data-Structure Similar to Tag-Store
 //)
 
+//void relocate(bucket_tuple* tuple_ptr);
 
 struct bucket_tuple {
   uns count;
@@ -86,6 +87,8 @@ union bucket_value {
 };
 
 vector<bucket_value> bucket[NUM_BUCKETS];
+
+void relocate(bucket_tuple* tuple_ptr);
 
 //For each Ball (Cache-Line), which Bucket (Set) it is in
 //(Data-Structure Similar to Data-Store RPTR)
@@ -305,8 +308,16 @@ uns insert_ball(uns64 ballID){
 
   if(init_heap_done == true) {
 
-    //bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
-    //get<1>(*tuple_ptr) = retval;
+    bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
+    tuple_ptr->count = bucket[index].at(0).count;
+    uns64 index_local = tuple_ptr->index;
+    pq.heapify_upwards(index_local);
+
+    if(tuple_ptr->index == 0) {
+      relocate(tuple_ptr);
+       //printf("should relocate\n");
+       //to do relocate to lowest index???
+    }
   }
   return retval;  
 }
@@ -331,7 +342,11 @@ uns64 remove_ball(void){
   //update count when removed
   //uns64 count = bucket[bucket_index].at(0).count;
   //get<1>(*bucket[bucket_index].at(1).tuple_ptr) = count;
-  
+  //bucket[bucket_index].at(0).count;
+  bucket_tuple* tuple_ptr = bucket[bucket_index].at(1).tuple_ptr;
+  tuple_ptr->count = bucket[bucket_index].at(0).count;
+  uns64 index_local = tuple_ptr->index;
+  pq.heapify_downwards(index_local);
   // Return BallID removed (ID will be reused for new ball to be inserted)  
   return ballID;
 }
@@ -394,8 +409,8 @@ void init_buckets(void){
   for(ii=0; ii<NUM_BUCKETS; ii++){
     bucket_value count_value = {0};
     bucket[ii].push_back(count_value); //ad 0 to first entry in all vectors
-    //bucket_value null_value = {0};
-    //bucket[ii].push_back(null_value); //add empty entry in all buckets to place pointer to heap tuple
+    bucket_value null_value = {0};
+    bucket[ii].push_back(null_value); //add empty entry in all buckets to place pointer to heap tuple
   }
   printf("done pushback\n");
  
@@ -415,12 +430,18 @@ void init_buckets(void){
 
 
 void init_heap(void){
+
+  //index refers to the elememt location, ?
+  uns64 index = 0;
   for (uns64 j=0; j<NUM_BUCKETS; ++j){
     //maxHeap.push(make_tuple(j, bucket[j].at(0));
     uns64 count = bucket[j].at(0).count;
-    //bucket_tuple* mytuple = new bucket_tuple(j, count);
-    //pq.push(mytuple);
-    //bucket[j].at(1).tuple_ptr = mytuple;
+    bucket_tuple* mytuple = new bucket_tuple(); //j, count);
+    mytuple->count = count;
+    mytuple->index = index;
+    pq.push(mytuple);
+    bucket[j].at(1).tuple_ptr = mytuple;
+    index++;
     //buckets_tuple* ptr = &
     //bucket[j].at(1).tuple_ptr = mytuple;
   }
@@ -453,7 +474,22 @@ uns  remove_and_insert(void){
 }
 
 
-///////////////////////////////////////////////////////////
+
+void get_max_element(void){
+  bucket_tuple* maxElement = pq.top();
+
+  uns index = maxElement->index;
+  //uns64 count = get<1>(maxElement);
+  uns64 count = maxElement->count;
+  cout << "Max Element: Index = " << index << ", Count = " << count << endl;
+}
+
+
+//////////////////////////////////
+//
+//
+//
+///////////////////////////
 //use a max heap to keep track of element that is most full
 //preemptively redistrubute to less used bucket
 // possibly use a min heap to do this or incurr the cost of lookup
@@ -461,6 +497,18 @@ uns  remove_and_insert(void){
 //
 // in second thought: just determine ordering order by search? terrible performance tho :(
 
+
+
+
+
+void relocate(bucket_tuple* tuple_ptr) {
+  uns64 ballID = mtrand->randInt(NUM_BUCKETS -1);
+  assert (ballID != 0);
+
+  assert (tuple_ptr->index == 0);
+
+  //printf("goof to go!");
+}
 
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
@@ -504,7 +552,7 @@ int main(int argc, char* argv[]){
         remove_and_insert();      
       }
       printf(".");fflush(stdout);
-      //get_max_element();
+      get_max_element();
     }    
     //Ensure Total Balls in Buckets is Conserved.
     sanity_check();
