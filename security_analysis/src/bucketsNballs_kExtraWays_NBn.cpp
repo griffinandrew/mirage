@@ -73,17 +73,16 @@ typedef double dbl;
 //)
 
 
-
 struct bucket_tuple {
   uns count;
   uns64 index;
 };
 
-// using bucket_tuple = tuple<uns, uns64>;
+//using bucket_tuple = tuple<uns, uns64>;
 
 union bucket_value {
-    uns count;
-    bucket_tuple* tuple_ptr; //index, cnt not sure about this?
+  uns count;
+  bucket_tuple* tuple_ptr; //index, cnt not sure about this?
 };
 
 vector<bucket_value> bucket[NUM_BUCKETS];
@@ -112,6 +111,8 @@ bool init_heap_done = false;
 MTRand *mtrand=new MTRand();
 
 //count of balls in each bucket used to determine orderingx
+
+/*
 struct tuple_comparator {
     bool operator()(const bucket_tuple* t1, const bucket_tuple* t2) const {
         // Compare based on the (count) of the tuple second item
@@ -122,6 +123,7 @@ struct tuple_comparator {
 //max heap to track most used bucket first elemenet is the bucket entry, second is the count
 std::priority_queue<bucket_tuple*, vector<bucket_tuple*>, tuple_comparator> maxHeap; //define a max heap that stores buckets
 
+*/
 
 class GriffinsAwesomePriorityQueue {
 public:
@@ -164,6 +166,21 @@ public:
     return storage_[0];
   }
 
+  void pop() {
+    uns64 size = storage_.size();
+    if (size == 0) {
+      return;
+    }
+    swap_elements(0, size - 1);
+    storage_.pop_back();
+    heapify_downwards(0);
+  }
+
+  void push(bucket_tuple* element) {
+    storage_.push_back(element);
+    heapify_upwards(storage_.size() - 1);
+  }
+
 private:
   void swap_elements(uns64 a, uns64 b) {
     std::swap(storage_[a], storage_[b]);
@@ -186,7 +203,6 @@ GriffinsAwesomePriorityQueue pq;
 // -- Based on which skew spill happened;
 // -- cuckoo into other recursively.
 /////////////////////////////////////////////////////
-
 
 
 
@@ -272,8 +288,10 @@ uns insert_ball(uns64 ballID){
   }
 
   //Increments count for Bucket where Ball Inserted 
+  //printf("inside");
   retval = bucket[index].at(0).count;
   bucket[index].at(0).count++;
+  //printf("done");
 
   //Track which bucket the new Ball was inserted in
   assert(balls[ballID] == (uns64)-1);
@@ -287,8 +305,8 @@ uns insert_ball(uns64 ballID){
 
   if(init_heap_done == true) {
 
-     bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
-     get<1>(*tuple_ptr) = retval;
+    //bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
+    //get<1>(*tuple_ptr) = retval;
   }
   return retval;  
 }
@@ -311,8 +329,8 @@ uns64 remove_ball(void){
   balls[ballID] = -1;
 
   //update count when removed
-  uns64 count = bucket[bucket_index].at(0).count;
-  get<1>(*bucket[bucket_index].at(1).tuple_ptr) = count;
+  //uns64 count = bucket[bucket_index].at(0).count;
+  //get<1>(*bucket[bucket_index].at(1).tuple_ptr) = count;
   
   // Return BallID removed (ID will be reused for new ball to be inserted)  
   return ballID;
@@ -372,13 +390,14 @@ void init_buckets(void){
   uns64 ii;
   assert(NUM_SKEWS * NUM_BUCKETS_PER_SKEW == NUM_BUCKETS);
   
-  //printf("in pushback\n");
+  printf("in pushback\n");
   for(ii=0; ii<NUM_BUCKETS; ii++){
     bucket_value count_value = {0};
     bucket[ii].push_back(count_value); //ad 0 to first entry in all vectors
-    bucket_value null_value = {0};
-    bucket[ii].push_back(null_value); //add empty entry in all buckets to place pointer to heap tuple
+    //bucket_value null_value = {0};
+    //bucket[ii].push_back(null_value); //add empty entry in all buckets to place pointer to heap tuple
   }
+  printf("done pushback\n");
  
   for(ii=0; ii<(NUM_BUCKETS*BALLS_PER_BUCKET); ii++){
     balls[ii] = -1;
@@ -391,6 +410,7 @@ void init_buckets(void){
 
   sanity_check();
   init_buckets_done = true;
+  printf("done init buckets\n");
 }
 
 
@@ -398,34 +418,15 @@ void init_heap(void){
   for (uns64 j=0; j<NUM_BUCKETS; ++j){
     //maxHeap.push(make_tuple(j, bucket[j].at(0));
     uns64 count = bucket[j].at(0).count;
-    bucket_tuple* mytuple = new bucket_tuple(j, count);
-    maxHeap.push(mytuple);
-    bucket[j].at(1).tuple_ptr = mytuple;
+    //bucket_tuple* mytuple = new bucket_tuple(j, count);
+    //pq.push(mytuple);
+    //bucket[j].at(1).tuple_ptr = mytuple;
     //buckets_tuple* ptr = &
     //bucket[j].at(1).tuple_ptr = mytuple;
   }
   init_heap_done = true;
 }
 
-
-
-void get_max_element(void){
-  bucket_tuple* maxElement = maxHeap.top();
-  uns index = get<0>(*maxElement);
-  uns64 count = get<1>(*maxElement);
-  cout << "Max Element: Index = " << index << ", Count = " << count << endl;
-}
-
-
-void display_max_heap_elements(void){
-  while (!maxHeap.empty()) {
-    bucket_tuple* maxElement = maxHeap.top();
-    uns index = get<0>(*maxElement);
-    uns64 count = get<1>(*maxElement);
-    cout << "Heap Element: Index = " << index << ", Count = " << count << endl;
-    maxHeap.pop();
-  }
-}
 
 
 
@@ -503,15 +504,15 @@ int main(int argc, char* argv[]){
         remove_and_insert();      
       }
       printf(".");fflush(stdout);
-      get_max_element();
+      //get_max_element();
     }    
     //Ensure Total Balls in Buckets is Conserved.
     sanity_check();
-    get_max_element();
+    //get_max_element();
     //Print count of Balls Thrown.
     printf(" %llu\n",bn_i+1);fflush(stdout);    
   }
-  display_max_heap_elements();
+  //display_max_heap_elements();
   
 
   printf("\n\nBucket-Occupancy Snapshot at End of Experiment\n");
