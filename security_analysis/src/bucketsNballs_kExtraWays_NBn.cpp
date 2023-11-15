@@ -72,14 +72,11 @@ typedef double dbl;
 //(Data-Structure Similar to Tag-Store
 //)
 
-//void relocate(bucket_tuple* tuple_ptr);
 
 struct bucket_tuple {
   uns count;
   uns64 index;
 };
-
-//using bucket_tuple = tuple<uns, uns64>;
 
 union bucket_value {
   uns count;
@@ -115,18 +112,6 @@ MTRand *mtrand=new MTRand();
 
 //count of balls in each bucket used to determine orderingx
 
-/*
-struct tuple_comparator {
-    bool operator()(const bucket_tuple* t1, const bucket_tuple* t2) const {
-        // Compare based on the (count) of the tuple second item
-        return get<1>(*t1) < get<1>(*t2);
-    }
-};
-
-//max heap to track most used bucket first elemenet is the bucket entry, second is the count
-std::priority_queue<bucket_tuple*, vector<bucket_tuple*>, tuple_comparator> maxHeap; //define a max heap that stores buckets
-
-*/
 
 class GriffinsAwesomePriorityQueue {
 public:
@@ -184,10 +169,26 @@ public:
     heapify_upwards(storage_.size() - 1);
   }
 
+  uns64 size(void){
+    uns64 size = storage_.size();
+    return size;
+  }
+
+  bucket_tuple* get_element(uns64 index) { //can be used to just get bottom? maybe diff function is better
+    bucket_tuple* val = storage_[index];
+    return val;
+  }
+
+  bucket_tuple* get_bottom(void){
+    uns64 last_index = storage_.size() - 1;
+    bucket_tuple* last = storage_[last_index];
+    return last;
+  }
+
 private:
   void swap_elements(uns64 a, uns64 b) {
     std::swap(storage_[a], storage_[b]);
-    std::swap(storage_[a]->index, storage_[b]->index);
+    std::swap(storage_[a]->index, storage_[b]->index); //do i also need to swap counts? or no i dont think
   }
 
 private:
@@ -290,11 +291,9 @@ uns insert_ball(uns64 ballID){
     assert(0);
   }
 
-  //Increments count for Bucket where Ball Inserted 
-  //printf("inside");
+
   retval = bucket[index].at(0).count;
   bucket[index].at(0).count++;
-  //printf("done");
 
   //Track which bucket the new Ball was inserted in
   assert(balls[ballID] == (uns64)-1);
@@ -312,11 +311,20 @@ uns insert_ball(uns64 ballID){
     tuple_ptr->count = bucket[index].at(0).count;
     uns64 index_local = tuple_ptr->index;
     pq.heapify_upwards(index_local);
+    //now do call remove remove or custom remove ball fucntiion to change locations?? i think so
 
-    if(tuple_ptr->index == 0) {
+    //this should move it to a new location
+    //balls[ballID] = tuple_ptr->index; //update the ball to reflet the new location????? not sure about this but think makes sense
+    uns64 idx = tuple_ptr->index;
+    uns64 count = tuple_ptr->count;
+    uns64 size = pq.size();
+    //cout << "idx " << idx << endl;
+    //cout << "count " << count<< endl;
+    //cout << "size " << size << endl;
+
+    if(0 == idx) {
       relocate(tuple_ptr);
-       //printf("should relocate\n");
-       //to do relocate to lowest index???
+      //maybe now need to check the ball id??  
     }
   }
   return retval;  
@@ -335,14 +343,15 @@ uns64 remove_ball(void){
   uns64 bucket_index = balls[ballID];
 
   // Update Ball Tracking
+  cout << ballID << endl;
+  bucket_tuple* this_tuple = bucket[bucket_index].at(1).tuple_ptr; 
+
+  cout << this_tuple->index << endl;
+  cout << bucket[bucket_index].at(0).count << endl;
   assert(bucket[bucket_index].at(0).count != 0 );  
   bucket[bucket_index].at(0).count--;
   balls[ballID] = -1;
 
-  //update count when removed
-  //uns64 count = bucket[bucket_index].at(0).count;
-  //get<1>(*bucket[bucket_index].at(1).tuple_ptr) = count;
-  //bucket[bucket_index].at(0).count;
   bucket_tuple* tuple_ptr = bucket[bucket_index].at(1).tuple_ptr;
   tuple_ptr->count = bucket[bucket_index].at(0).count;
   uns64 index_local = tuple_ptr->index;
@@ -484,6 +493,12 @@ void get_max_element(void){
   cout << "Max Element: Index = " << index << ", Count = " << count << endl;
 }
 
+void get_min_element(void) {
+  bucket_tuple* minElement = pq.get_bottom();
+  uns index = minElement->index;
+  uns64 count = minElement->count;
+  cout << "Min Element: Index = " << index << ", Count = " << count << endl;
+}
 
 //////////////////////////////////
 //
@@ -499,17 +514,13 @@ void get_max_element(void){
 
 
 
-
-
 void relocate(bucket_tuple* tuple_ptr) {
-  uns64 ballID = mtrand->randInt(NUM_BUCKETS -1);
-  assert (ballID != 0);
+  bucket_tuple* tuple_last = pq.get_bottom();
+  assert(tuple_last->index = pq.size() -1);
 
-  assert (tuple_ptr->index == 0);
-  uns64 ball_id_to_relocate = storage_.size() -1;
-  //printf("goof to go!");
-  bucket_tuple* = storage_[ball_id_to_relocate];
-  assert(bucket_tuple->index = storage_size() -1);
+  uns64 ballID = 
+  //now here I should relocate index 0 to lowest index item
+  //tuple_ptr->index;
 
 }
 
@@ -556,6 +567,7 @@ int main(int argc, char* argv[]){
       }
       printf(".");fflush(stdout);
       get_max_element();
+      get_min_element();
     }    
     //Ensure Total Balls in Buckets is Conserved.
     sanity_check();
