@@ -196,6 +196,24 @@ public:
     cout << endl;
   }
 
+  void heapify(uns64 index) {
+    heapify_downwards(index);
+    heapify_upwards(index);
+  }
+
+  bucket_tuple* get_count_zero(){
+    uns64 size = storage_.size();
+    uns64 index = 0;
+    //this linearly searches for the first element with count 0 
+    for (const auto& element : storage_) {
+      if (element->count == 0) {
+        return element;
+      }
+      index++;
+    }
+    return nullptr;
+  }
+
 
 private:
   void swap_elements(uns64 a, uns64 b) {
@@ -211,6 +229,79 @@ private:
 GriffinsAwesomePriorityQueue pq;
 
 
+class minHeap {
+public:
+  void heapify_upwards(int index) {
+    while (index > 0) {
+      int parent_index = (index - 1) / 2;
+      if (storage_[index]->count < storage_[parent_index]->count) {
+        swap_elements(index, parent_index);
+        index = parent_index;
+      } else {
+          break;
+      }
+    }
+  }
+
+  void heapify_downwards(int index) {
+    int size = storage_.size();
+
+    while (true) {
+      int smallest = index;
+      int left_index = 2 * index + 1;
+      int right_index = 2 * index + 2;
+
+      if (left_index < size && storage_[left_index]->count < storage_[smallest]->count) {
+          smallest = left_index;
+      }
+
+      if (right_index < size && storage_[right_index]->count < storage_[smallest]->count) {
+          smallest = right_index;
+      }
+
+      if (smallest != index) {
+          swap_elements(index, smallest);
+          index = smallest;
+      } else {
+          break;
+      }
+    }
+  }
+
+  bucket_tuple* top() const {
+    return storage_.empty() ? nullptr : storage_[0];
+  }
+
+  void pop() {
+    int size = storage_.size();
+    if (size == 0) {
+        return;
+    }
+    swap_elements(0, size - 1);
+    storage_.pop_back();
+    heapify_downwards(0);
+  }
+
+  void push(bucket_tuple* element) {
+    storage_.push_back(element);
+    heapify_upwards(storage_.size() - 1);
+  }
+
+  int size() const {
+    return storage_.size();
+  }
+
+private:
+  void swap_elements(int a, int b) {
+    std::swap(storage_[a], storage_[b]);
+    std::swap(storage_[a]->index, storage_[b]->index);
+  }
+
+private:
+  vector<bucket_tuple*> storage_;
+};
+
+minHeap min;
 /////////////////////////////////////////////////////
 // FUNCTIONS - Ball Insertion, Removal, Spill, etc.
 /////////////////////////////////////////////////////
@@ -325,8 +416,8 @@ uns insert_ball(uns64 ballID){
     tuple_ptr->bucket = index;
     uns64 index_local = tuple_ptr->index; //this should be the balls location
     //cout << "idx 1 " << index_local << endl;
-    //pq.heapify_upwards(index_local);
-    pq.heapify_downwards(0);
+    pq.heapify_upwards(index_local);
+    //pq.heapify_downwards(0);
 
     uns64 index_loc = tuple_ptr->index; //this should be the balls location
     //cout << "idx 2 " << index_loc << endl;
@@ -384,8 +475,8 @@ uns64 remove_ball(void){
   tuple_ptr->count = bucket[bucket_index].at(0).count;
   uns64 index_local = tuple_ptr->index;
  //pq.heapify_downwards(bucket_index);
-  //pq.heapify_downwards(index_local);
-  pq.heapify_downwards(0);
+  pq.heapify_downwards(index_local);
+  //pq.heapify_downwards(0);
   // Return BallID removed (ID will be reused for new ball to be inserted)  
   return ballID;
 }
@@ -553,7 +644,8 @@ void get_min_element(void) {
 
 
 void relocate(bucket_tuple* tuple_ptr) {
-  bucket_tuple* tuple_last = pq.get_bottom();
+  bucket_tuple* tuple_last = pq.get_count_zero();
+  assert(tuple_ptr !- nullptr);
   assert(tuple_last->index = pq.size() -1);
   if (tuple_last->count == SPILL_THRESHOLD){
     return;
