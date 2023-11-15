@@ -506,8 +506,11 @@ void relocate(bucket_tuple* tuple_ptr) {
   assert (ballID != 0);
 
   assert (tuple_ptr->index == 0);
-
+  uns64 ball_id_to_relocate = storage_.size() -1;
   //printf("goof to go!");
+  bucket_tuple* = storage_[ball_id_to_relocate];
+  assert(bucket_tuple->index = storage_size() -1);
+
 }
 
 /////////////////////////////////////////////////////
