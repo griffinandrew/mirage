@@ -74,8 +74,9 @@ typedef double dbl;
 
 
 struct bucket_tuple {
-  uns count;
-  uns64 index;
+  uns count; //amount of balls in bucket
+  uns64 bucket; //this is the current bucket of t
+  uns64 index; //current location in the heap
 };
 
 union bucket_value {
@@ -111,7 +112,7 @@ bool init_heap_done = false;
 MTRand *mtrand=new MTRand();
 
 //count of balls in each bucket used to determine orderingx
-
+uns64 number_relocations = 0; 
 
 class GriffinsAwesomePriorityQueue {
 public:
@@ -185,9 +186,21 @@ public:
     return last;
   }
 
+  void printHeap() const {
+    cout << "Heap elements: ";
+    uns64 index = 0;
+    for (const auto& element : storage_) {
+      cout << index << " " << element->count << " " <<endl;
+      index++;
+    }
+    cout << endl;
+  }
+
+
 private:
   void swap_elements(uns64 a, uns64 b) {
-    std::swap(storage_[a], storage_[b]);
+    std::swap(storage_[a], storage_[b]); //does this counts? no counts are the same
+    //std::swap(bucket[storage_[a]->index].at(1).tuple_ptr->index, bucket[storage_[b]->index].at(1).tuple_ptr->index);
     std::swap(storage_[a]->index, storage_[b]->index); //do i also need to swap counts? or no i dont think
   }
 
@@ -291,26 +304,40 @@ uns insert_ball(uns64 ballID){
     assert(0);
   }
 
-
   retval = bucket[index].at(0).count;
   bucket[index].at(0).count++;
 
   //Track which bucket the new Ball was inserted in
   assert(balls[ballID] == (uns64)-1);
   balls[ballID] = index;
-  
-  //----------- SPILL --------
+
+
+    //----------- SPILL --------
   if(SPILL_THRESHOLD && (retval >= SPILL_THRESHOLD)){
     //Overwrite balls[ballID] with spill_index.
     spill_ball(index,ballID);   
   }
 
-  if(init_heap_done == true) {
 
+  if(init_heap_done == true) {
     bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
     tuple_ptr->count = bucket[index].at(0).count;
-    uns64 index_local = tuple_ptr->index;
-    pq.heapify_upwards(index_local);
+    tuple_ptr->bucket = index;
+    uns64 index_local = tuple_ptr->index; //this should be the balls location
+    //cout << "idx 1 " << index_local << endl;
+    //pq.heapify_upwards(index_local);
+    pq.heapify_downwards(0);
+
+    uns64 index_loc = tuple_ptr->index; //this should be the balls location
+    //cout << "idx 2 " << index_loc << endl;
+
+
+    //now set index to update location
+    //tuple_ptr->index = index;
+
+    //pq.heapify_upwards(index); //this is the bucket tho????
+
+
     //now do call remove remove or custom remove ball fucntiion to change locations?? i think so
 
     //this should move it to a new location
@@ -323,6 +350,7 @@ uns insert_ball(uns64 ballID){
     //cout << "size " << size << endl;
 
     if(0 == idx) {
+      //cout << idx << endl;
       relocate(tuple_ptr);
       //maybe now need to check the ball id??  
     }
@@ -343,11 +371,11 @@ uns64 remove_ball(void){
   uns64 bucket_index = balls[ballID];
 
   // Update Ball Tracking
-  cout << ballID << endl;
+  //cout << ballID << endl;
   bucket_tuple* this_tuple = bucket[bucket_index].at(1).tuple_ptr; 
 
-  cout << this_tuple->index << endl;
-  cout << bucket[bucket_index].at(0).count << endl;
+  //cout << this_tuple->index << endl;
+  //cout << bucket[bucket_index].at(0).count << endl;
   assert(bucket[bucket_index].at(0).count != 0 );  
   bucket[bucket_index].at(0).count--;
   balls[ballID] = -1;
@@ -355,10 +383,21 @@ uns64 remove_ball(void){
   bucket_tuple* tuple_ptr = bucket[bucket_index].at(1).tuple_ptr;
   tuple_ptr->count = bucket[bucket_index].at(0).count;
   uns64 index_local = tuple_ptr->index;
-  pq.heapify_downwards(index_local);
+ //pq.heapify_downwards(bucket_index);
+  //pq.heapify_downwards(index_local);
+  pq.heapify_downwards(0);
   // Return BallID removed (ID will be reused for new ball to be inserted)  
   return ballID;
 }
+
+uns64 insert_reloc() {
+
+}
+
+uns64 remove_reloc() {
+
+}
+
 
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
@@ -440,20 +479,27 @@ void init_buckets(void){
 
 void init_heap(void){
 
-  //index refers to the elememt location, ?
-  uns64 index = 0;
-  for (uns64 j=0; j<NUM_BUCKETS; ++j){
-    //maxHeap.push(make_tuple(j, bucket[j].at(0));
+  //uns64 bucket = 0;
+  uns64 j, k;
+  for (j=0; j<NUM_BUCKETS; ++j){
     uns64 count = bucket[j].at(0).count;
     bucket_tuple* mytuple = new bucket_tuple(); //j, count);
     mytuple->count = count;
-    mytuple->index = index;
+    mytuple->index = j; //just randomly issue index in the queue but actaully
+    
+    //index here is the bucket number? should it be?
+    //maybe add list of ballid's that map to this bucket to struct so can move them?
+    mytuple->bucket = j;
     pq.push(mytuple);
     bucket[j].at(1).tuple_ptr = mytuple;
-    index++;
-    //buckets_tuple* ptr = &
-    //bucket[j].at(1).tuple_ptr = mytuple;
+
+    //bucket++;
   }
+  //for (k=0; k<NUM_BUCKETS; ++k){ //now find the current location in the heap and assign index
+  //  bucket_tuple* mytuple = bucket[j].at(1).tuple_ptr;
+
+  //}
+
   init_heap_done = true;
 }
 
@@ -486,12 +532,12 @@ uns  remove_and_insert(void){
 
 void get_max_element(void){
   bucket_tuple* maxElement = pq.top();
-
   uns index = maxElement->index;
   //uns64 count = get<1>(maxElement);
   uns64 count = maxElement->count;
   cout << "Max Element: Index = " << index << ", Count = " << count << endl;
 }
+
 
 void get_min_element(void) {
   bucket_tuple* minElement = pq.get_bottom();
@@ -500,27 +546,67 @@ void get_min_element(void) {
   cout << "Min Element: Index = " << index << ", Count = " << count << endl;
 }
 
-//////////////////////////////////
-//
-//
-//
-///////////////////////////
-//use a max heap to keep track of element that is most full
-//preemptively redistrubute to less used bucket
-// possibly use a min heap to do this or incurr the cost of lookup
 // ////////////////////////////////////////////////
-//
-// in second thought: just determine ordering order by search? terrible performance tho :(
-
+//use a max heap to keep track of element that is most full
+//preemptively redistrubute to lessen used bucket
+// ////////////////////////////////////////////////
 
 
 void relocate(bucket_tuple* tuple_ptr) {
   bucket_tuple* tuple_last = pq.get_bottom();
   assert(tuple_last->index = pq.size() -1);
+  if (tuple_last->count == SPILL_THRESHOLD){
+    return;
+  }
+  uns64 index_in_heap = tuple_ptr->index;
+  uns64 bucket = tuple_ptr->bucket;
 
-  uns64 ballID = 
+  //cout << "index in heap " << index_in_heap << endl;
+  //cout << "bucket " << bucket << endl;
+  uns64 index_to_reloc = tuple_last->index;
+  uns64 bucket_to_reloc = tuple_last->bucket;
+  //cout << "index to reloc " << index_to_reloc << endl;
+  //cout << "bucket to reloc " << bucket_to_reloc << endl;
+
+  //maybe swap them now?????
+  std::swap(tuple_ptr->bucket,tuple_last->bucket); //swap the buckets???
+  tuple_ptr->count--;
+  tuple_last->count++; //change the count
+  pq.heapify_downwards(0); //redo the whole heap? //the count is not up to date tho!!!!!
+
+  //unsure abojt this one bc tupl could be stale???
+  uns64 idx = tuple_ptr->index;
+  uns64 count = tuple_ptr->count;
+  uns64 count1 = tuple_last->count;
+  uns64 buck = tuple_ptr->bucket;
+  //cout << "bucket " << buck << endl;
+  //cout << "idx " << idx << endl;
+  //cout << "count " << count << endl;
+  //cout << "count1 " << count1 << endl;
+
+
+  //bucket[idx].at(0).count--;
+  
+  /*bucket_tuple* temp;
+  temp->index = tuple_ptr->index;
+  temp->count = tuple_ptr->count;
+  temp->bucket = tuple_ptr->bucket;
+  tuple_ptr->index = tuple_last->index;
+  tuple_ptr->count = tuple_last->count;
+  tuple_ptr->bucket = tuple_last->bucket;
+  tuple_last->index = temp->index;
+  tuple_last->bucket = temp->bucket;
+  tuple_last->count = temp->count; 
+  */
+
+  //then update counts?
+
+  
+
+  //uns64 ballID = 
   //now here I should relocate index 0 to lowest index item
   //tuple_ptr->index;
+  number_relocations++;
 
 }
 
@@ -575,6 +661,8 @@ int main(int argc, char* argv[]){
     //Print count of Balls Thrown.
     printf(" %llu\n",bn_i+1);fflush(stdout);    
   }
+  pq.printHeap();
+  cout << number_relocations << endl;
   //display_max_heap_elements();
   
 
