@@ -75,7 +75,8 @@ typedef double dbl;
 
 struct bucket_tuple {
   uns count; //amount of balls in bucket
-  uns64 bucket; //this is the current bucket of t
+  vector<uns64> balls;
+  uns64 bucket;
   uns64 index; //current location in the heap
 };
 
@@ -408,44 +409,25 @@ uns insert_ball(uns64 ballID){
     //Overwrite balls[ballID] with spill_index.
     spill_ball(index,ballID);   
   }
+  
+  bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
+  tuple_ptr->count = bucket[index].at(0).count;
+  tuple_ptr->balls.push_back(ballID);
+  //tuple_ptr->bucket = index;
+  uns64 index_local = tuple_ptr->index; //this should be the balls location
+  //cout << "idx 1 " << index_local << endl;
+  pq.heapify_upwards(index_local);
+  //pq.heapify_downwards(0);
 
+  uns64 index_loc = tuple_ptr->index; //this should be the balls location
+  //cout << "idx 2 " << index_loc << endl;
 
-  if(init_heap_done == true) {
-    bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
-    tuple_ptr->count = bucket[index].at(0).count;
-    tuple_ptr->bucket = index;
-    uns64 index_local = tuple_ptr->index; //this should be the balls location
-    //cout << "idx 1 " << index_local << endl;
-    pq.heapify_upwards(index_local);
-    //pq.heapify_downwards(0);
-
-    uns64 index_loc = tuple_ptr->index; //this should be the balls location
-    //cout << "idx 2 " << index_loc << endl;
-
-
-    //now set index to update location
-    //tuple_ptr->index = index;
-
-    //pq.heapify_upwards(index); //this is the bucket tho????
-
-
-    //now do call remove remove or custom remove ball fucntiion to change locations?? i think so
-
-    //this should move it to a new location
-    //balls[ballID] = tuple_ptr->index; //update the ball to reflet the new location????? not sure about this but think makes sense
-    uns64 idx = tuple_ptr->index;
-    uns64 count = tuple_ptr->count;
-    uns64 size = pq.size();
-    //cout << "idx " << idx << endl;
-    //cout << "count " << count<< endl;
-    //cout << "size " << size << endl;
-
-    if(0 == idx) {
-      //cout << idx << endl;
-      relocate(tuple_ptr);
-      //maybe now need to check the ball id??  
-    }
-  }
+  //f(0 == idx) {
+    //cout << idx << endl;
+   // relocate(tuple_ptr);
+    //maybe now need to check the ball id??  
+  //}
+  
   return retval;  
 }
 
@@ -461,6 +443,7 @@ uns64 remove_ball(void){
   assert(balls[ballID] != (uns64)-1);
   uns64 bucket_index = balls[ballID];
 
+
   // Update Ball Tracking
   //cout << ballID << endl;
   bucket_tuple* this_tuple = bucket[bucket_index].at(1).tuple_ptr; 
@@ -474,6 +457,17 @@ uns64 remove_ball(void){
   bucket_tuple* tuple_ptr = bucket[bucket_index].at(1).tuple_ptr;
   tuple_ptr->count = bucket[bucket_index].at(0).count;
   uns64 index_local = tuple_ptr->index;
+  if (bucket_index < tuple_ptr->balls.size()) {
+        // Remove element at bucket_index
+    for (uns64 k =0; k < tuple_ptr->balls.size(); ++k){
+      if (tuple_ptr->balls[k] == ballID) //search thru vector to erase ballid from ball list so wont be relocated by accidnet
+      {
+        tuple_ptr->balls.erase(tuple_ptr->balls.begin() + k);
+        break;
+      }
+    }
+  }
+  //tuple_ptr->balls.erase(0, bucket_index);
  //pq.heapify_downwards(bucket_index);
   pq.heapify_downwards(index_local);
   //pq.heapify_downwards(0);
@@ -481,13 +475,6 @@ uns64 remove_ball(void){
   return ballID;
 }
 
-uns64 insert_reloc() {
-
-}
-
-uns64 remove_reloc() {
-
-}
 
 
 /////////////////////////////////////////////////////
@@ -552,11 +539,29 @@ void init_buckets(void){
     bucket[ii].push_back(null_value); //add empty entry in all buckets to place pointer to heap tuple
   }
   printf("done pushback\n");
+
+  uns64 j, k;
+  for (j=0; j<NUM_BUCKETS; ++j){
+    //uns64 count = bucket[j].at(0).count;
+    bucket_tuple* mytuple = new bucket_tuple(); //j, count);
+    mytuple->count = 0;
+    mytuple->index = j; //just randomly issue index in the queue but actaully
+
+    //mytuple->balls.push_back(); //make room for balls to be added
+    mytuple->bucket = j; 
+    pq.push(mytuple);
+    bucket[j].at(1).tuple_ptr = mytuple;
+  }
  
   for(ii=0; ii<(NUM_BUCKETS*BALLS_PER_BUCKET); ii++){
     balls[ii] = -1;
     insert_ball(ii);
   }
+
+  //for (k=0; k<NUM_BUCKETS; ++k){
+  //  uns64 count = bucket[j].at(0).count;
+  //  uns64 bucket_num = bucket[j].at(1).bucket;
+ //}
 
   for(ii=0; ii<=MAX_FILL; ii++){
     stat_counts[ii]=0;
@@ -566,35 +571,6 @@ void init_buckets(void){
   init_buckets_done = true;
   printf("done init buckets\n");
 }
-
-
-void init_heap(void){
-
-  //uns64 bucket = 0;
-  uns64 j, k;
-  for (j=0; j<NUM_BUCKETS; ++j){
-    uns64 count = bucket[j].at(0).count;
-    bucket_tuple* mytuple = new bucket_tuple(); //j, count);
-    mytuple->count = count;
-    mytuple->index = j; //just randomly issue index in the queue but actaully
-    
-    //index here is the bucket number? should it be?
-    //maybe add list of ballid's that map to this bucket to struct so can move them?
-    mytuple->bucket = j;
-    pq.push(mytuple);
-    bucket[j].at(1).tuple_ptr = mytuple;
-
-    //bucket++;
-  }
-  //for (k=0; k<NUM_BUCKETS; ++k){ //now find the current location in the heap and assign index
-  //  bucket_tuple* mytuple = bucket[j].at(1).tuple_ptr;
-
-  //}
-
-  init_heap_done = true;
-}
-
-
 
 
 /////////////////////////////////////////////////////
@@ -729,8 +705,8 @@ int main(int argc, char* argv[]){
   printf("done init\n");
   //Ensure Total Balls in Buckets is Conserved.
   sanity_check();
-  printf("init heap\n");
-  init_heap();
+  //printf("init heap\n");
+  //init_heap();
 
   printf("Starting --  (Dot printed every 100M Ball throws) \n");
 
