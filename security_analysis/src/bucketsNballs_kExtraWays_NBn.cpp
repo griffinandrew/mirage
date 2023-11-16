@@ -253,6 +253,7 @@ void spill_ball(uns64 index, uns64 ballID){
       break;
     }
   }
+  tuple_ptr->count = bucket[index].at(0).count;
   pq.heapify_downwards(index);
 
 
@@ -362,7 +363,6 @@ uns insert_ball(uns64 ballID){
   uns64 index_local = tuple_ptr->index; //this should be the balls location
   //cout << "idx 1 " << index_local << endl;
   pq.heapify_upwards(index_local);
-
   if(tuple_ptr->index == 0 && tuple_ptr->count >1) {
     cout << "in relocate\n" <<endl;
     relocate(tuple_ptr);
