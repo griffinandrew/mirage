@@ -319,9 +319,16 @@ void spill_ball(uns64 index, uns64 ballID){
   uns done=0;
 
   bucket[index].at(0).count--; //assuming 0 is the count, dec count
-  
-  //uns64 count = bucket[index].at(0).count;
-  //get<1>(*bucket[index].at(1).tuple_ptr) = count;
+  bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
+  for (uns64 k =0; k < tuple_ptr->balls.size(); ++k){
+    if (tuple_ptr->balls[k] == ballID) //search thru vector to erase ballid from ball list so wont be relocated by accidnet
+    {
+      tuple_ptr->balls.erase(tuple_ptr->balls.begin() + k);
+      break;
+    }
+  }
+  pq.heapify_downwards(index);
+
 
   while(done!=1){
     //Pick skew & bucket-index where spilled ball should be placed.
@@ -337,8 +344,14 @@ void spill_ball(uns64 index, uns64 ballID){
       done=1;
       bucket[spill_index].at(0).count++;
       balls[ballID] = spill_index;
-      //uns64 count = bucket[spill_index].at(0).count;
-      //get<1>(*bucket[spill_index].at(1).tuple_ptr) = count;
+
+      bucket_tuple* tuple_ptr = bucket[spill_index].at(1).tuple_ptr;
+      tuple_ptr->count = bucket[spill_index].at(0).count;
+      tuple_ptr->balls.push_back(ballID);
+      //tuple_ptr->bucket = index;
+      uns64 index_local = tuple_ptr->index; //this should be the balls location
+      //cout << "idx 1 " << index_local << endl;
+      pq.heapify_upwards(index_local);
      
     } else {
       assert(bucket[spill_index].at(0).count == SPILL_THRESHOLD);
@@ -404,12 +417,15 @@ uns insert_ball(uns64 ballID){
   balls[ballID] = index;
 
 
-    //----------- SPILL --------
+        //----------- SPILL --------
   if(SPILL_THRESHOLD && (retval >= SPILL_THRESHOLD)){
     //Overwrite balls[ballID] with spill_index.
-    spill_ball(index,ballID);   
+    spill_ball(index,ballID);
+    return retval;  
+    //should return?
   }
-  
+
+  //this seg faults but i think its becuase not updating in spill
   bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
   tuple_ptr->count = bucket[index].at(0).count;
   tuple_ptr->balls.push_back(ballID);
@@ -419,14 +435,12 @@ uns insert_ball(uns64 ballID){
   pq.heapify_upwards(index_local);
   //pq.heapify_downwards(0);
 
+  //if(tuple_ptr->index == 0 && tuple_ptr->count > 1) {
+  //  relocate(tuple_ptr);
+  //}
+
   uns64 index_loc = tuple_ptr->index; //this should be the balls location
   //cout << "idx 2 " << index_loc << endl;
-
-  //f(0 == idx) {
-    //cout << idx << endl;
-   // relocate(tuple_ptr);
-    //maybe now need to check the ball id??  
-  //}
   
   return retval;  
 }
@@ -458,7 +472,7 @@ uns64 remove_ball(void){
   tuple_ptr->count = bucket[bucket_index].at(0).count;
   uns64 index_local = tuple_ptr->index;
   if (bucket_index < tuple_ptr->balls.size()) {
-        // Remove element at bucket_index
+    // remove element at bucket_index
     for (uns64 k =0; k < tuple_ptr->balls.size(); ++k){
       if (tuple_ptr->balls[k] == ballID) //search thru vector to erase ballid from ball list so wont be relocated by accidnet
       {
@@ -467,10 +481,7 @@ uns64 remove_ball(void){
       }
     }
   }
-  //tuple_ptr->balls.erase(0, bucket_index);
- //pq.heapify_downwards(bucket_index);
   pq.heapify_downwards(index_local);
-  //pq.heapify_downwards(0);
   // Return BallID removed (ID will be reused for new ball to be inserted)  
   return ballID;
 }
