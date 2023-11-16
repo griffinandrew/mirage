@@ -631,7 +631,7 @@ void get_max_element(void){
 
 
 void get_min_element(void) {
-  bucket_tuple* minElement = pq.get_bottom();
+  bucket_tuple* minElement = pq.get_count_zero();
   uns index = minElement->index;
   uns64 count = minElement->count;
   cout << "Min Element: Index = " << index << ", Count = " << count << endl;
@@ -645,7 +645,7 @@ void get_min_element(void) {
 
 void relocate(bucket_tuple* tuple_ptr) {
   bucket_tuple* tuple_last = pq.get_count_zero();
-  assert(tuple_ptr !- nullptr);
+  assert(tuple_ptr != nullptr);
   assert(tuple_last->index = pq.size() -1);
   if (tuple_last->count == SPILL_THRESHOLD){
     return;
