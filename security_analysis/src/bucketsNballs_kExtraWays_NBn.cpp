@@ -352,6 +352,7 @@ void spill_ball(uns64 index, uns64 ballID){
       uns64 index_local = tuple_ptr->index; //this should be the balls location
       //cout << "idx 1 " << index_local << endl;
       pq.heapify_upwards(index_local);
+      //tuple_ptr->index index should be updated!!!
      
     } else {
       assert(bucket[spill_index].at(0).count == SPILL_THRESHOLD);
@@ -420,10 +421,12 @@ uns insert_ball(uns64 ballID){
         //----------- SPILL --------
   if(SPILL_THRESHOLD && (retval >= SPILL_THRESHOLD)){
     //Overwrite balls[ballID] with spill_index.
+    
+    //cout << "in spill\n" <<endl;
     spill_ball(index,ballID);
-    return retval;  
-    //should return?
+    //return retval;  
   }
+  else {
 
   //this seg faults but i think its becuase not updating in spill
   bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
@@ -433,16 +436,16 @@ uns insert_ball(uns64 ballID){
   uns64 index_local = tuple_ptr->index; //this should be the balls location
   //cout << "idx 1 " << index_local << endl;
   pq.heapify_upwards(index_local);
-  //pq.heapify_downwards(0);
 
-  //if(tuple_ptr->index == 0 && tuple_ptr->count > 1) {
-  //  relocate(tuple_ptr);
-  //}
+  if(tuple_ptr->index == 0 && tuple_ptr->count >= 1) {
+    cout << "in here\n" <<endl;
+    relocate(tuple_ptr);
+  }
 
   uns64 index_loc = tuple_ptr->index; //this should be the balls location
   //cout << "idx 2 " << index_loc << endl;
-  
-  return retval;  
+  }
+  return retval; 
 }
 
 /////////////////////////////////////////////////////
@@ -471,14 +474,11 @@ uns64 remove_ball(void){
   bucket_tuple* tuple_ptr = bucket[bucket_index].at(1).tuple_ptr;
   tuple_ptr->count = bucket[bucket_index].at(0).count;
   uns64 index_local = tuple_ptr->index;
-  if (bucket_index < tuple_ptr->balls.size()) {
-    // remove element at bucket_index
-    for (uns64 k =0; k < tuple_ptr->balls.size(); ++k){
-      if (tuple_ptr->balls[k] == ballID) //search thru vector to erase ballid from ball list so wont be relocated by accidnet
-      {
-        tuple_ptr->balls.erase(tuple_ptr->balls.begin() + k);
-        break;
-      }
+  for (uns64 k =0; k < tuple_ptr->balls.size(); ++k){
+    if (tuple_ptr->balls[k] == ballID) //search thru vector to erase ballid from ball list so wont be relocated by accidnet
+    {
+      tuple_ptr->balls.erase(tuple_ptr->balls.begin() + k);
+      break;
     }
   }
   pq.heapify_downwards(index_local);
@@ -569,11 +569,6 @@ void init_buckets(void){
     insert_ball(ii);
   }
 
-  //for (k=0; k<NUM_BUCKETS; ++k){
-  //  uns64 count = bucket[j].at(0).count;
-  //  uns64 bucket_num = bucket[j].at(1).bucket;
- //}
-
   for(ii=0; ii<=MAX_FILL; ii++){
     stat_counts[ii]=0;
   }
@@ -633,7 +628,7 @@ void get_min_element(void) {
 void relocate(bucket_tuple* tuple_ptr) {
   bucket_tuple* tuple_last = pq.get_count_zero();
   assert(tuple_ptr != nullptr);
-  assert(tuple_last->index = pq.size() -1);
+  //assert(tuple_last->index = pq.size() -1);
   if (tuple_last->count == SPILL_THRESHOLD){
     return;
   }
@@ -648,20 +643,24 @@ void relocate(bucket_tuple* tuple_ptr) {
   //cout << "bucket to reloc " << bucket_to_reloc << endl;
 
   //maybe swap them now?????
+
+  /*NOTE DIONR DETLETE
   std::swap(tuple_ptr->bucket,tuple_last->bucket); //swap the buckets???
   tuple_ptr->count--;
   tuple_last->count++; //change the count
   pq.heapify_downwards(0); //redo the whole heap? //the count is not up to date tho!!!!!
 
+
+  */
   //unsure abojt this one bc tupl could be stale???
   uns64 idx = tuple_ptr->index;
   uns64 count = tuple_ptr->count;
   uns64 count1 = tuple_last->count;
   uns64 buck = tuple_ptr->bucket;
-  //cout << "bucket " << buck << endl;
-  //cout << "idx " << idx << endl;
-  //cout << "count " << count << endl;
-  //cout << "count1 " << count1 << endl;
+  cout << "bucket " << buck << endl;
+  cout << "idx " << idx << endl;
+  cout << "count " << count << endl;
+  cout << "count1 " << count1 << endl;
 
 
   //bucket[idx].at(0).count--;
@@ -704,20 +703,12 @@ int main(int argc, char* argv[]){
   printf("Cache Configuration: %d MB, %d skews, %d ways (%d ways/skew)\n",CACHE_SZ_BYTES/1024/1024,NUM_SKEWS,NUM_SKEWS*BASE_WAYS_PER_SKEW,BASE_WAYS_PER_SKEW);
   printf("AVG-BALLS-PER-BUCKET:%d, BUCKET-SPILL-THRESHOLD:%d \n",BASE_WAYS_PER_SKEW,SPILL_THRESHOLD);
   printf("Simulation Parameters - BALL_THROWS:%llu, SEED:%d\n\n",(unsigned long long)NUM_BILLION_TRIES*(unsigned long long)BILLION_TRIES,myseed);
-	
-  printf("config set\n");  
   uns64 ii;
   mtrand->seed(myseed);
 
   //Initialize Buckets
-  //
-  printf("before init\n");
   init_buckets();
-  printf("done init\n");
-  //Ensure Total Balls in Buckets is Conserved.
   sanity_check();
-  //printf("init heap\n");
-  //init_heap();
 
   printf("Starting --  (Dot printed every 100M Ball throws) \n");
 
