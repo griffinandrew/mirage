@@ -363,8 +363,8 @@ uns insert_ball(uns64 ballID){
   //cout << "idx 1 " << index_local << endl;
   pq.heapify_upwards(index_local);
 
-  if(tuple_ptr->index == 0 && tuple_ptr->count >= 1) {
-    cout << "in here\n" <<endl;
+  if(tuple_ptr->index == 0 && tuple_ptr->count >1) {
+    cout << "in relocate\n" <<endl;
     relocate(tuple_ptr);
   }
 
@@ -583,10 +583,10 @@ void relocate(bucket_tuple* tuple_ptr) {
   uns64 count = tuple_ptr->count;
   uns64 count1 = tuple_last->count;
   uns64 buck = tuple_ptr->bucket;
-  cout << "bucket " << buck << endl;
-  cout << "idx " << idx << endl;
-  cout << "count " << count << endl;
-  cout << "count1 " << count1 << endl;
+ // cout << "bucket " << buck << endl;
+  //cout << "idx " << idx << endl;
+  //cout << "count " << count << endl;
+  //cout << "count1 " << count1 << endl;
 
 
   //bucket[idx].at(0).count--;
