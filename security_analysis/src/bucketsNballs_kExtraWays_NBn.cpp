@@ -76,7 +76,7 @@ typedef double dbl;
 struct bucket_tuple {
   uns count; //amount of balls in bucket
   vector<uns64> balls;
-  uns64 bucket;
+  uns64 bucket; //one of num buckets buck
   uns64 index; //current location in the heap
 };
 
@@ -87,7 +87,7 @@ union bucket_value {
 
 vector<bucket_value> bucket[NUM_BUCKETS];
 
-void relocate(bucket_tuple* tuple_ptr);
+void relocate(bucket_tuple* tuple_ptr, uns64 ballID);
 
 //For each Ball (Cache-Line), which Bucket (Set) it is in
 //(Data-Structure Similar to Data-Store RPTR)
@@ -187,21 +187,6 @@ public:
     return last;
   }
 
-  void printHeap() const {
-    cout << "Heap elements: ";
-    uns64 index = 0;
-    for (const auto& element : storage_) {
-      cout << index << " " << element->count << " " <<endl;
-      index++;
-    }
-    cout << endl;
-  }
-
-  void heapify(uns64 index) {
-    heapify_downwards(index);
-    heapify_upwards(index);
-  }
-
   bucket_tuple* get_count_zero(){
     uns64 size = storage_.size();
     uns64 index = 0;
@@ -214,7 +199,6 @@ public:
     }
     return nullptr;
   }
-
 
 private:
   void swap_elements(uns64 a, uns64 b) {
@@ -353,24 +337,21 @@ uns insert_ball(uns64 ballID){
     spill_ball(index,ballID);
     //return retval;  
   }
-  else {
 
-  //this seg faults but i think its becuase not updating in spill
+  //add ball id to current bucket
   bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
   tuple_ptr->count = bucket[index].at(0).count;
   tuple_ptr->balls.push_back(ballID);
-  //tuple_ptr->bucket = index;
+
   uns64 index_local = tuple_ptr->index; //this should be the balls location
   //cout << "idx 1 " << index_local << endl;
   pq.heapify_upwards(index_local);
-  if(tuple_ptr->index == 0 && tuple_ptr->count >1) {
-    cout << "in relocate\n" <<endl;
-    relocate(tuple_ptr);
+
+  if(tuple_ptr->index == 0) {
+    //cout << "in relocate\n" <<endl;
+    //relocate(tuple_ptr, ballID);
   }
 
-  uns64 index_loc = tuple_ptr->index; //this should be the balls location
-  //cout << "idx 2 " << index_loc << endl;
-  }
   return retval; 
 }
 
@@ -386,12 +367,7 @@ uns64 remove_ball(void){
   assert(balls[ballID] != (uns64)-1);
   uns64 bucket_index = balls[ballID];
 
-
-  // Update Ball Tracking
-  //cout << ballID << endl;
   bucket_tuple* this_tuple = bucket[bucket_index].at(1).tuple_ptr; 
-
-  //cout << this_tuple->index << endl;
   //cout << bucket[bucket_index].at(0).count << endl;
   assert(bucket[bucket_index].at(0).count != 0 );  
   bucket[bucket_index].at(0).count--;
@@ -411,8 +387,6 @@ uns64 remove_ball(void){
   // Return BallID removed (ID will be reused for new ball to be inserted)  
   return ballID;
 }
-
-
 
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
@@ -528,6 +502,8 @@ uns  remove_and_insert(void){
 }
 
 
+/////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
 
 void get_max_element(void){
   bucket_tuple* maxElement = pq.top();
@@ -537,6 +513,8 @@ void get_max_element(void){
   cout << "Max Element: Index = " << index << ", Count = " << count << endl;
 }
 
+/////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
 
 void get_min_element(void) {
   bucket_tuple* minElement = pq.get_count_zero();
@@ -551,69 +529,58 @@ void get_min_element(void) {
 // ////////////////////////////////////////////////
 
 
-void relocate(bucket_tuple* tuple_ptr) {
-  bucket_tuple* tuple_last = pq.get_count_zero();
-  assert(tuple_ptr != nullptr);
-  //assert(tuple_last->index = pq.size() -1);
-  if (tuple_last->count == SPILL_THRESHOLD){
+//not sure how this will effect retval in insert 
+void relocate(bucket_tuple* tuple_ptr, uns64 ballID) {
+
+  uns64 index_in_heap = tuple_ptr->index;
+  uns64 buck_to_move = tuple_ptr->bucket;
+  //cout<< "in relocate" << endl;
+
+  if (tuple_ptr->balls.size() == 1|| init_buckets_done == false || tuple_ptr->balls.size() == 2 || tuple_ptr->balls.size() == 0){
     return;
   }
-  uns64 index_in_heap = tuple_ptr->index;
-  uns64 bucket = tuple_ptr->bucket;
 
-  //cout << "index in heap " << index_in_heap << endl;
-  //cout << "bucket " << bucket << endl;
-  uns64 index_to_reloc = tuple_last->index;
+  //now swap out ball that was inserted
+
+  for (uns64 k =0; k < tuple_ptr->balls.size(); ++k){
+    if (tuple_ptr->balls[k] == ballID) //search thru vector to erase ballid from ball list so wont be relocated by accidnet
+    {
+      tuple_ptr->balls.erase(tuple_ptr->balls.begin() + k);
+      tuple_ptr->count--; //decrease count and erase ball
+      bucket[buck_to_move].at(0).count--;
+      cout << index_in_heap << endl;
+      cout << bucket[buck_to_move].at(0).count << endl;
+      break;
+    }
+  }
+  pq.heapify_downwards(index_in_heap);
+
+  bucket_tuple* tuple_last = pq.get_count_zero();
+
+  uns64 index_to_reloc = tuple_last->index; //also in heap
   uns64 bucket_to_reloc = tuple_last->bucket;
-  //cout << "index to reloc " << index_to_reloc << endl;
-  //cout << "bucket to reloc " << bucket_to_reloc << endl;
+  uns64 count = tuple_last->count;
+  cout << "index to reloc "  << index_to_reloc << endl;
+  cout << "bucket_to_reloc " << bucket_to_reloc <<endl;
+  cout << bucket[bucket_to_reloc].at(0).count << endl;
+  cout << "tuple count " << count << endl;
 
-  //maybe swap them now?????
-
-  /*NOTE DIONR DETLETE
-  std::swap(tuple_ptr->bucket,tuple_last->bucket); //swap the buckets???
-  tuple_ptr->count--;
-  tuple_last->count++; //change the count
-  pq.heapify_downwards(0); //redo the whole heap? //the count is not up to date tho!!!!!
-
-
-  */
-  //unsure abojt this one bc tupl could be stale???
-  uns64 idx = tuple_ptr->index;
-  uns64 count = tuple_ptr->count;
+  tuple_last->balls.push_back(ballID); //add ball to less used cache line
+  tuple_last->count++;
+  bucket[bucket_to_reloc].at(0).count++;
   uns64 count1 = tuple_last->count;
-  uns64 buck = tuple_ptr->bucket;
- // cout << "bucket " << buck << endl;
-  //cout << "idx " << idx << endl;
-  //cout << "count " << count << endl;
-  //cout << "count1 " << count1 << endl;
+  cout << "tuple count1 " << count1 << endl;
+  //cahnge ball to relfect new location
+  balls[ballID] = bucket_to_reloc;
+  pq.heapify_upwards(index_to_reloc);
+  uns64 idx = tuple_last->index;
+  cout << "new idx " << idx << endl;
 
-
-  //bucket[idx].at(0).count--;
-  
-  /*bucket_tuple* temp;
-  temp->index = tuple_ptr->index;
-  temp->count = tuple_ptr->count;
-  temp->bucket = tuple_ptr->bucket;
-  tuple_ptr->index = tuple_last->index;
-  tuple_ptr->count = tuple_last->count;
-  tuple_ptr->bucket = tuple_last->bucket;
-  tuple_last->index = temp->index;
-  tuple_last->bucket = temp->bucket;
-  tuple_last->count = temp->count; 
-  */
-
-  //then update counts?
-
-  
-
-  //uns64 ballID = 
-  //now here I should relocate index 0 to lowest index item
-  //tuple_ptr->index;
   number_relocations++;
-
 }
 
+/////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
 
@@ -657,7 +624,6 @@ int main(int argc, char* argv[]){
     //Print count of Balls Thrown.
     printf(" %llu\n",bn_i+1);fflush(stdout);    
   }
-  pq.printHeap();
   cout << number_relocations << endl;
   //display_max_heap_elements();
   
