@@ -232,8 +232,10 @@ GriffinsAwesomePriorityQueue pq;
 void spill_ball(uns64 index, uns64 ballID){
   uns done=0;
 
-  bucket[index].at(0).count--; //assuming 0 is the count, dec count
+  //decrement count of bucket that is full
+  bucket[index].at(0).count--;
   bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
+  //remove inserted ball from bucket balls vector
   for (uns64 k =0; k < tuple_ptr->balls.size(); ++k){
     if (tuple_ptr->balls[k] == ballID) //search thru vector to erase ballid from ball list so wont be relocated by accidnet
     {
@@ -241,8 +243,11 @@ void spill_ball(uns64 index, uns64 ballID){
       break;
     }
   }
+  //reflect the pointer count to match the new count, this can just be a decremet, would probs be faster
   tuple_ptr->count = bucket[index].at(0).count;
+  //heapify down to correct ordering as count is decreased
   pq.heapify_downwards(index);
+
 
 
   while(done!=1){
@@ -257,15 +262,22 @@ void spill_ball(uns64 index, uns64 ballID){
     //If new spill_index bucket where spilled-ball is to be installed has space, then done.
     if(bucket[spill_index].at(0).count < SPILL_THRESHOLD){
       done=1;
+      //increment count of bucket that ball is inserted into
       bucket[spill_index].at(0).count++;
+      //set the ball to the new bucket
       balls[ballID] = spill_index;
 
+      //get pointer to update needed values 
       bucket_tuple* tuple_ptr = bucket[spill_index].at(1).tuple_ptr;
+      //again this should probs be a decrement 
       tuple_ptr->count = bucket[spill_index].at(0).count;
+      //add ball to bucket balls vector
       tuple_ptr->balls.push_back(ballID);
-      //tuple_ptr->bucket = index;
+
+
       uns64 index_local = tuple_ptr->index; //this should be the balls location
       //cout << "idx 1 " << index_local << endl;
+      //heapify up to correct ordering as count is increased
       pq.heapify_upwards(index_local);
       //tuple_ptr->index index should be updated!!!
      
@@ -326,6 +338,8 @@ uns insert_ball(uns64 ballID){
   }
 
   retval = bucket[index].at(0).count;
+
+  //update count of bucket that ball is inserted into 
   bucket[index].at(0).count++;
 
   //Track which bucket the new Ball was inserted in
@@ -342,15 +356,19 @@ uns insert_ball(uns64 ballID){
     //return retval;  
   }
 
-  //add ball id to current bucket
+  //get pointer to update needed values
   bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
+  //update pointer count to match the new count
   tuple_ptr->count = bucket[index].at(0).count;
+  //add ball id to current bucket
   tuple_ptr->balls.push_back(ballID);
 
   uns64 index_local = tuple_ptr->index; //this should be the balls location
-  //cout << "idx 1 " << index_local << endl;
+
+  //heapify up to correct ordering as count is increased 
   pq.heapify_upwards(index_local);
 
+  //check if the ball is at the top of the heap, if so relocate it to a less full bucket
   if(tuple_ptr->index == 0) {
     //cout << "in relocate\n" <<endl;
     //relocate(tuple_ptr, ballID);
@@ -556,12 +574,16 @@ void relocate(bucket_tuple* tuple_ptr, uns64 ballID) {
   uns64 buck_to_move = tuple_ptr->bucket;
   //cout<< "in relocate" << endl;
 
+
+  //this logic needs solidifying  
+  //the basic idea is to do no relocations, in the initial phase of assigning buckets to ball and only after that has finsihied use relocations
   if (tuple_ptr->balls.size() == 1|| init_buckets_done == false || tuple_ptr->balls.size() == 2 || tuple_ptr->balls.size() == 0){
     return;
   }
 
   //now swap out ball that was inserted
 
+  //search for ball to be relocated in bucket balls vector and erase it, then decrease count
   for (uns64 k =0; k < tuple_ptr->balls.size(); ++k){
     if (tuple_ptr->balls[k] == ballID) //search thru vector to erase ballid from ball list so wont be relocated by accidnet
     {
@@ -573,25 +595,35 @@ void relocate(bucket_tuple* tuple_ptr, uns64 ballID) {
       break;
     }
   }
+  //correct heap ordering with new deleted ball 
   pq.heapify_downwards(index_in_heap);
 
+  //get the bucket with the least amount of balls, or just the first bucket with 0 balls
   bucket_tuple* tuple_last = pq.get_count_zero();
 
   uns64 index_to_reloc = tuple_last->index; //also in heap
+  //get the bucket id of the bucket with the least amount of balls
   uns64 bucket_to_reloc = tuple_last->bucket;
+  //get the count of the bucket with the least amount of balls to make sure 0 or maybe near 0? 
+  //i guess i am assuming that the bucket with the least amount of balls will be 0 
   uns64 count = tuple_last->count;
   cout << "index to reloc "  << index_to_reloc << endl;
   cout << "bucket_to_reloc " << bucket_to_reloc <<endl;
   cout << bucket[bucket_to_reloc].at(0).count << endl;
   cout << "tuple count " << count << endl;
 
+  //add ball to less bucket to relocate it to
   tuple_last->balls.push_back(ballID); //add ball to less used cache line
+  //increase count of bucket that ball was relocated to tuple 
   tuple_last->count++;
+  //increase count of bucket that ball was relocated to bucket
   bucket[bucket_to_reloc].at(0).count++;
   uns64 count1 = tuple_last->count;
   cout << "tuple count1 " << count1 << endl;
+  
   //cahnge ball to relfect new location
   balls[ballID] = bucket_to_reloc;
+  //correct heap ordering with new inserted ball
   pq.heapify_upwards(index_to_reloc);
   uns64 idx = tuple_last->index;
   cout << "new idx " << idx << endl;
@@ -640,7 +672,6 @@ int main(int argc, char* argv[]){
     }    
     //Ensure Total Balls in Buckets is Conserved.
     sanity_check();
-    //get_max_element();
     //Print count of Balls Thrown.
     printf(" %llu\n",bn_i+1);fflush(stdout);    
   }
