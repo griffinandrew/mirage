@@ -371,22 +371,35 @@ uns64 remove_ball(void){
   assert(balls[ballID] != (uns64)-1);
   uns64 bucket_index = balls[ballID];
 
+  // get bucket tuple
   bucket_tuple* this_tuple = bucket[bucket_index].at(1).tuple_ptr; 
   //cout << bucket[bucket_index].at(0).count << endl;
+  // check that bucket is not empty
   assert(bucket[bucket_index].at(0).count != 0 );  
+  // modify count of bucket
   bucket[bucket_index].at(0).count--;
+  
+  // -1 signals that ball is not assigned
   balls[ballID] = -1;
 
+
+  //this is not needed as repeating set from above
   bucket_tuple* tuple_ptr = bucket[bucket_index].at(1).tuple_ptr;
+
+  //set the count of the tuple to the new count
   tuple_ptr->count = bucket[bucket_index].at(0).count;
+  //get the index for heapify? check this step
   uns64 index_local = tuple_ptr->index;
+
+  //search thru vector to erase ballid from ball list so wont be relocated by accidnet
   for (uns64 k =0; k < tuple_ptr->balls.size(); ++k){
-    if (tuple_ptr->balls[k] == ballID) //search thru vector to erase ballid from ball list so wont be relocated by accidnet
+    if (tuple_ptr->balls[k] == ballID) 
     {
       tuple_ptr->balls.erase(tuple_ptr->balls.begin() + k);
       break;
     }
   }
+  // again check this is the right index to heapify!!!!
   pq.heapify_downwards(index_local);
   // Return BallID removed (ID will be reused for new ball to be inserted)  
   return ballID;
@@ -446,27 +459,28 @@ void init_buckets(void){
   uns64 ii;
   assert(NUM_SKEWS * NUM_BUCKETS_PER_SKEW == NUM_BUCKETS);
   
-  printf("in pushback\n");
+  //Initialize Buckets with correct data structures
+
+  //ensure that this is doing what I think it is!!
   for(ii=0; ii<NUM_BUCKETS; ii++){
     bucket_value count_value = {0};
     bucket[ii].push_back(count_value); //ad 0 to first entry in all vectors
     bucket_value null_value = {0};
     bucket[ii].push_back(null_value); //add empty entry in all buckets to place pointer to heap tuple
   }
-  printf("done pushback\n");
 
-  uns64 j, k;
-  for (j=0; j<NUM_BUCKETS; ++j){
-    //uns64 count = bucket[j].at(0).count;
+  for (ii=0; ii<NUM_BUCKETS; ++ii){
+
     bucket_tuple* mytuple = new bucket_tuple(); //j, count);
     mytuple->count = 0;
-    mytuple->index = j; //just randomly issue index in the queue but actaully
+    mytuple->index = 0; //set index to 0 and have heapfify in push determine the ordering??
 
-    //mytuple->balls.push_back(); //make room for balls to be added
-    mytuple->bucket = j; 
-    pq.push(mytuple);
-    bucket[j].at(1).tuple_ptr = mytuple;
+    //bucket is unqiue id for each bucket
+    mytuple->bucket = ii; 
+    pq.push(mytuple); //this heapfies
+    bucket[ii].at(1).tuple_ptr = mytuple; //set pointer to tuple in bucket 
   }
+
  
   for(ii=0; ii<(NUM_BUCKETS*BALLS_PER_BUCKET); ii++){
     balls[ii] = -1;
@@ -509,10 +523,10 @@ uns  remove_and_insert(void){
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
 
+//this just return the max element in the heap
 void get_max_element(void){
   bucket_tuple* maxElement = pq.top();
   uns index = maxElement->index;
-  //uns64 count = get<1>(maxElement);
   uns64 count = maxElement->count;
   cout << "Max Element: Index = " << index << ", Count = " << count << endl;
 }
@@ -520,6 +534,7 @@ void get_max_element(void){
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
 
+//get min element in heap, USELESS
 void get_min_element(void) {
   bucket_tuple* minElement = pq.get_count_zero();
   uns index = minElement->index;
@@ -534,6 +549,7 @@ void get_min_element(void) {
 
 
 //not sure how this will effect retval in insert 
+//func responsible for relocating balls from full buckets to less full buckets
 void relocate(bucket_tuple* tuple_ptr, uns64 ballID) {
 
   uns64 index_in_heap = tuple_ptr->index;
