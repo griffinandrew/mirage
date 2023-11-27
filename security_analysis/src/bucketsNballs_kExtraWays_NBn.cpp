@@ -76,7 +76,7 @@ typedef double dbl;
 struct bucket_tuple {
   uns count; //amount of balls in bucket
   vector<uns64> balls;
-  uns64 bucket; //one of num buckets buck
+  uns64 bucket; //bucket id
   uns64 index; //current location in the heap
 };
 
@@ -87,6 +87,8 @@ union bucket_value {
 
 vector<bucket_value> bucket[NUM_BUCKETS];
 
+
+//just fucntion declaration
 void relocate(bucket_tuple* tuple_ptr, uns64 ballID);
 
 //For each Ball (Cache-Line), which Bucket (Set) it is in
@@ -115,6 +117,8 @@ MTRand *mtrand=new MTRand();
 //count of balls in each bucket used to determine orderingx
 uns64 number_relocations = 0; 
 
+
+//priority queue that is used to determine which bucket to relocate and which bucket to insert into
 class GriffinsAwesomePriorityQueue {
 public:
   // Called when count is incremented.
