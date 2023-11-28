@@ -123,6 +123,8 @@ MTRand *mtrand=new MTRand();
 uns64 number_relocations = 0; 
 
 uns64 number_empty_buckets = 0;
+uns64 number_no_1 = 0;
+uns64 number_no_2 = 0;
 
 
 //priority queue that is used to determine which bucket to relocate and which bucket to insert into
@@ -194,27 +196,29 @@ public:
   }
 
   bucket_tuple* get_count_zero(){
-    //uns64 size = storage_.size();
-    //uns64 index = 0;
     //this linearly searches for the first element with count 0 
     for (const auto& element : storage_) {
       if (element->count == 0) {
         return element;
       }
-      //index++;
     }
     return nullptr;
   }
 
   bucket_tuple* get_count_one(){
-    //uns64 size = storage_.size();
-    //uns64 index = 0;
-    //this linearly searches for the first element with count 0 
     for (const auto& element : storage_) {
       if (element->count == 1) {
         return element;
       }
-      //index++;
+    }
+    return nullptr;
+  }
+  
+  bucket_tuple* get_count_two(){
+    for (const auto& element : storage_) {
+      if (element->count == 2) {
+        return element;
+      }
     }
     return nullptr;
   }
@@ -786,17 +790,25 @@ void relocate2(bucket_tuple* tuple_ptr) {
     uns64 index_in_heap = tuple_ptr->index;
     uns64 buck_to_move = tuple_ptr->bucket;
 
-    bucket_tuple* tuple_last =  pq.get_count_zero();
+    bucket_tuple* tuple_last = pq.get_count_zero();
 
-    bucket_tuple* tuple_last1;
+    //bucket_tuple* tuple_last1;
 
     if (tuple_last == nullptr) {
       //cout << "NO EMPTY BUCKETS" << endl;
       number_empty_buckets++;
-      tuple_last1 = pq.get_count_one();
-      if (tuple_last1 == nullptr) {
+      tuple_last = pq.get_count_one();
+      if (tuple_last == nullptr) {
+        number_no_1++;
         //cout << "NO BUCKETS WITH 1 BALL" << endl;
-        return;
+        
+        tuple_last = pq.get_count_two();
+        if (tuple_last == nullptr) {
+        number_no_2++;
+        //cout << "NO BUCKETS WITH 2 BALLS" << endl;
+        //tuple_last = pq.get_element(0);
+        return; // just dont relocate?? 
+        }
       }
     }
 
@@ -938,6 +950,8 @@ int main(int argc, char* argv[]){
       get_min_element();
       cout << "Number of relocations: " << number_relocations << endl;
       cout << "Number of empty buckets: " << number_empty_buckets << endl;
+      cout << "Number of no 1 buckets: " << number_no_1 << endl;
+      cout << "Number of no 2 buckets: " << number_no_2 << endl;
     }    
     //Ensure Total Balls in Buckets is Conserved.
     sanity_check();
