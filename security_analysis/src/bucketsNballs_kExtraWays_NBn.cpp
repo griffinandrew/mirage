@@ -92,9 +92,7 @@ vector<bucket_value> bucket[NUM_BUCKETS];
 
 
 //just fucntion declaration
-void relocate(bucket_tuple* tuple_ptr, uns64 ballID);
-
-void relocate2(bucket_tuple* tuple_ptr);
+void relocate(bucket_tuple* tuple_ptr);
 
 //For each Ball (Cache-Line), which Bucket (Set) it is in
 //(Data-Structure Similar to Data-Store RPTR)
@@ -437,7 +435,7 @@ uns insert_ball(uns64 ballID){
     //cout << "RELOCATE\n" <<endl;
     //cout << "Before relocation - Bucket count: " << bucket[index_local].at(0).count << endl;
 
-    relocate2(tuple_ptr);
+    relocate(tuple_ptr);
     //this ballID is stale if it has been changed in relocate 
   } //so maybe?? 
 
@@ -704,89 +702,9 @@ void get_min_element(void) {
 // ////////////////////////////////////////////////
 
 
-//not sure how this will effect retval in insert 
-//func responsible for relocating balls from full buckets to less full buckets
-void relocate(bucket_tuple* tuple_ptr, uns64 ballID) {
-
-  uns64 index_in_heap = tuple_ptr->index;
-  uns64 buck_to_move = tuple_ptr->bucket;
-  //cout<< "in relocate" << endl;
-
-  //now swap out ball that was inserted
-
-  //search for ball to be relocated in bucket balls vector and erase it, then decrease count
-  
-  tuple_ptr->ball_list.erase(
-  std::remove(tuple_ptr->ball_list.begin(), tuple_ptr->ball_list.end(), ballID),
-  tuple_ptr->ball_list.end());
-  tuple_ptr->count--;
-  bucket[buck_to_move].at(0).count--;
-
-
-  
-  /*
-  for (uns64 k =0; k < tuple_ptr->ball_list.size(); ++k){
-    if (tuple_ptr->ball_list[k] == ballID) //search thru vector to erase ballid from ball list so wont be relocated by accidnet
-    {
-      tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin() + k);
-      tuple_ptr->count--; //decrease count and erase ball
-      bucket[buck_to_move].at(0).count--;  //i think this is correct?? 
-      break;
-    }
-  }
-  */
-
-  //correct heap ordering with new deleted ball 
-
-  //pq.heapify_downwards(index_in_heap); 
-
-  //get the bucket with the least amount of balls, or just the first bucket with 0 balls
-  //bucket_tuple* tuple_last = pq.get_count_zero();
-
-
-  uns64 bucket_id_to_reloc = mtrand->randInt(NUM_BUCKETS); //get random bucket to relocate ball to??? 
-
-  //really this is random but whatever
-  bucket_tuple* tuple_last  = bucket[bucket_id_to_reloc].at(1).tuple_ptr;
-
-  uns64 index_to_reloc = tuple_last->index; //also in heap
-  //get the bucket id of the bucket with the least amount of balls
-  uns64 bucket_to_reloc = tuple_last->bucket;
-  //get the count of the bucket with the least amount of balls to make sure 0 or maybe near 0? 
-  //i guess i am assuming that the bucket with the least amount of balls will be 0 
-  uns64 count = tuple_last->count;
-
-  //note count already decremnted here
-  //cout << "Relocating ballID: " << ballID << " from bucket: " << buck_to_move << " to bucket: " << bucket_to_reloc << "with count " <<bucket[buck_to_move].at(0).count+1 << endl;
-
-  //add ball to less bucket to relocate it to
-  tuple_last->ball_list.push_back(ballID); //add ball to less used cache line
-  //increase count of bucket that ball was relocated to tuple 
-  tuple_last->count++;
-  //increase count of bucket that ball was relocated to bucket
-  bucket[bucket_to_reloc].at(0).count++;
-  uns64 count1 = tuple_last->count;
-  //cout << "tuple count1 " << count1 << endl;
-  
-  //cahnge ball to relfect new location
-  balls[ballID] = bucket_to_reloc;
-  //correct heap ordering with new inserted ball
-  tuple_last->index = index_to_reloc; //not sure about this
-
-  //pq.heapify_upwards(index_to_reloc);
-  pq.heapify_downwards(0); // idk heapify the whole thing?
-  uns64 idx = tuple_last->index;
-  //cout << "new idx " << idx << endl; //index is staying the same?
-
-  //cout << "After relocation, count in bucket to move: " << bucket[buck_to_move].at(0).count << endl;
-  //cout << "After relocation, count in destination bucket: " << bucket[bucket_to_reloc].at(0).count << endl;
-
-  number_relocations++;
-}
-
 
 //what if instead of removing that ball id just remove the one at the front?
-void relocate2(bucket_tuple* tuple_ptr) {
+void relocate(bucket_tuple* tuple_ptr) {
     uns64 index_in_heap = tuple_ptr->index;
     uns64 buck_to_move = tuple_ptr->bucket;
 
@@ -815,8 +733,6 @@ void relocate2(bucket_tuple* tuple_ptr) {
       //tuple_last = pq.get_element(0);
       return; // just dont relocate?? 
     }
-
-
 
     //cout << "tuple count " << tuple_last->count << endl;
     //cout << "bucket count " << bucket[bucket_to_reloc].at(0).count << endl;
@@ -955,7 +871,7 @@ int main(int argc, char* argv[]){
       get_max_element();
       get_min_element();
       cout << "Number of relocations: " << number_relocations << endl;
-      cout << "Number of empty buckets: " << number_empty_buckets << endl;
+      cout << "Number of no empty buckets: " << number_empty_buckets << endl;
       cout << "Number of no 1 buckets: " << number_no_1 << endl;
       cout << "Number of no 2 buckets: " << number_no_2 << endl;
     }    
