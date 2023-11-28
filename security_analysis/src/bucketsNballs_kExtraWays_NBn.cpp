@@ -508,7 +508,9 @@ uns64 remove_ball(void){
     cout << "Balls size" << this_tuple->ball_list.size() << endl;
     //if balls size is not 0 then why is count 0?? mrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
   }
+  
 
+  //WHY IS THIS HAPPENING???
   assert(bucket[bucket_index].at(0).count != 0);  
   //isnt this saying that no bucket can be empty? which is not true........ wtf
 
@@ -532,8 +534,8 @@ uns64 remove_ball(void){
 
   //search thru vector to erase ballid from ball list so wont be relocated by accidnet
   tuple_ptr->ball_list.erase(
-    std::remove(tuple_ptr->ball_list.begin(), tuple_ptr->ball_list.end(), ballID),
-    tuple_ptr->ball_list.end());
+  std::remove(tuple_ptr->ball_list.begin(), tuple_ptr->ball_list.end(), ballID),
+  tuple_ptr->ball_list.end());
   
   /*
   for (uns64 k =0; k < tuple_ptr->ball_list.size(); ++k){
@@ -805,14 +807,11 @@ void relocate2(bucket_tuple* tuple_ptr, uns64 ballID) {
     uns64 buck_to_move = tuple_ptr->bucket;
 
     // Remove the ball from the current bucket
-    for (uns64 k = 0; k < tuple_ptr->ball_list.size(); ++k) {
-        if (tuple_ptr->ball_list[k] == ballID) {
-            tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin() + k);
-            tuple_ptr->count--;
-            bucket[buck_to_move].at(0).count--;
-            break;
-        }
-    }
+    tuple_ptr->ball_list.erase(
+    std::remove(tuple_ptr->ball_list.begin(), tuple_ptr->ball_list.end(), ballID),
+    tuple_ptr->ball_list.end());
+    tuple_ptr->count--;
+    bucket[buck_to_move].at(0).count--;
 
     // Get a random destination bucket
     //uns64 bucket_id_to_reloc = mtrand->randInt(NUM_BUCKETS);
@@ -821,7 +820,7 @@ void relocate2(bucket_tuple* tuple_ptr, uns64 ballID) {
     uns64 bucket_to_reloc = tuple_last->bucket;
 
     // Move the ball to the new bucket
-    tuple_last->ball_list.push_back(ballID);
+    tuple_last->ball_list.push_back(ballID); //add ball to less used cache line??
     tuple_last->count++;
     bucket[bucket_to_reloc].at(0).count++;
     balls[ballID] = bucket_to_reloc;
@@ -838,6 +837,12 @@ void relocate2(bucket_tuple* tuple_ptr, uns64 ballID) {
     cout << "After relocation, count in destination bucket: " << bucket[bucket_to_reloc].at(0).count << endl;
 
     number_relocations++;
+
+    //assert(tuple_last->ball_list.size() -1 == bucket[bucket_to_reloc].at(0).count);
+    cout << "tuple count " << tuple_last->count << endl;
+    cout << "bucket count " << bucket[bucket_to_reloc].at(0).count << endl;
+    cout << "size " << tuple_last->ball_list.size() << endl;
+    assert(tuple_last->ball_list.size() == bucket[bucket_to_reloc].at(0).count);
 }
 
 
