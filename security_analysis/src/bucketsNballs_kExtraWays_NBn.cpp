@@ -484,7 +484,7 @@ uns insert_ball(uns64 ballID){
   //tuple_ptr->ball_list.push_back(ballID);
 
   //uns64 index_local = tuple_ptr->index; //this should be the balls location
-  //uns64 bucket_id = tuple_ptr->bucket; //this should be the balls location
+  uns64 bucket_id = tuple_ptr->bucket; //this should be the balls location
 
   //heapify up to correct ordering as count is increased 
   //pq.heapify_upwards(index_local);
