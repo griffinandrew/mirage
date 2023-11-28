@@ -798,19 +798,25 @@ void relocate2(bucket_tuple* tuple_ptr) {
       //cout << "NO EMPTY BUCKETS" << endl;
       number_empty_buckets++;
       tuple_last = pq.get_count_one();
-      if (tuple_last == nullptr) {
-        number_no_1++;
-        //cout << "NO BUCKETS WITH 1 BALL" << endl;
-        
-        tuple_last = pq.get_count_two();
-        if (tuple_last == nullptr) {
-        number_no_2++;
-        //cout << "NO BUCKETS WITH 2 BALLS" << endl;
-        //tuple_last = pq.get_element(0);
-        return; // just dont relocate?? 
-        }
-      }
+      //cout << "USING BUCKET WITH 1 BALL" << endl;
     }
+
+    if (tuple_last == nullptr) {
+      number_no_1++;
+      //cout << "USING BUCKET WITH 2 BALLS" << endl;
+      //cout << "NO BUCKETS WITH 1 BALL" << endl;
+      tuple_last = pq.get_count_two();
+    }
+
+    if (tuple_last == nullptr) {
+      number_no_2++;
+      cout << "FAILED" << endl;
+      //cout << "NO BUCKETS WITH 2 BALLS" << endl;
+      //tuple_last = pq.get_element(0);
+      return; // just dont relocate?? 
+    }
+
+
 
     //cout << "tuple count " << tuple_last->count << endl;
     //cout << "bucket count " << bucket[bucket_to_reloc].at(0).count << endl;
