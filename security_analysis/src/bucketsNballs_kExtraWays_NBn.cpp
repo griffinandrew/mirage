@@ -122,6 +122,8 @@ MTRand *mtrand=new MTRand();
 //count of balls in each bucket used to determine orderingx
 uns64 number_relocations = 0; 
 
+uns64 number_empty_buckets = 0;
+
 
 //priority queue that is used to determine which bucket to relocate and which bucket to insert into
 class GriffinsAwesomePriorityQueue {
@@ -204,6 +206,21 @@ public:
     return nullptr;
   }
 
+  bucket_tuple* get_count_one(){
+    //uns64 size = storage_.size();
+    //uns64 index = 0;
+    //this linearly searches for the first element with count 0 
+    for (const auto& element : storage_) {
+      if (element->count == 1) {
+        return element;
+      }
+      //index++;
+    }
+    return nullptr;
+  }
+
+
+
 private:
   void swap_elements(uns64 a, uns64 b) {
     std::swap(storage_[a], storage_[b]); //does this counts? no counts are the same
@@ -216,106 +233,6 @@ private:
 };
 
 GriffinsAwesomePriorityQueue pq;
-
-
-////////////////////////////////////////////////////// 
-//attempt Queue implementation with buckets array directly
-//////////////////////////////////////////////////////
-
-
-/*
-class GriffinsAwesomePriorityQueue {
-public:
-  // Called when count is incremented.
-  void heapify_upwards(uns64 index) {
-    if (index == 0) {
-      return;
-    }
-
-    uns64 parent_index = (index - 1) / 2;
-    if (bucket[index].at(0).count > bucket[parent_index].at(0).count) {
-      swap_elements(index, parent_index);
-      heapify_upwards(parent_index);
-    }
-  }
-
-  // Called when count is decremented.
-  void heapify_downwards(uns64 index) {
-    uns64 size = bucket.size();
-    
-    uns64 max = index;
-    uns64 left_index = 2 * index + 1;
-    uns64 right_index = 2 * index + 2;
-
-    if (left_index < size && bucket[left_index].at(0).count > bucket[max].at(0).count) {
-      max = left_index;
-    }
-
-    if (right_index < size && bucket[right_index].at(0).count > bucket[max].at(0).count) {
-      max = right_index;
-    }
-
-    if (max != index) {
-      swap_elements(index, max);
-      heapify_downwards(max);
-    }
-  }
-
-  bucket_tuple *top() const {
-    return bucket[0];
-  }
-
-  void pop() {
-    uns64 size = bucket.size();
-    if (size == 0) {
-      return;
-    }
-    swap_elements(0, size - 1);
-    bucket.pop_back();
-    heapify_downwards(0);
-  }
-
-  void push(bucket_tuple* element) {
-    bucket.push_back(element);
-    element->index = bucket.size() - 1;
-    heapify_upwards(element->index);
-  }
-
-  uns64 size(void){
-    uns64 size = bucket.size();
-    return size;
-  }
-
-  bucket_tuple* get_element(uns64 index) {
-    bucket_tuple* val = bucket[index];
-    return val;
-  }
-
-  bucket_tuple* get_count_zero(){
-    uns64 size = bucket.size();
-    uns64 index = 0;
-    //this linearly searches for the first element with count 0 
-    for (const auto& element : bucket) {
-      if (element->count == 0) {
-        return element;
-      }
-      index++;
-    }
-    return nullptr;
-  }
-
-private:
-  void swap_elements(uns64 a, uns64 b) {
-    std::swap(bucket[a], bucket[b]); //does this counts? no counts are the same
-    std::swap(bucket[a]->index, bucket[b]->index); //do i also need to swap counts? or no i dont think
-  }
-};
-
-GriffinsAwesomePriorityQueue pq;
-
-*/
-
-
 
 /////////////////////////////////////////////////////
 // FUNCTIONS - Ball Insertion, Removal, Spill, etc.
@@ -343,12 +260,12 @@ void spill_ball(uns64 index, uns64 ballID){
   //bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
   //remove inserted ball from bucket balls vector
   for (uns64 k =0; k < tuple_ptr->ball_list.size(); ++k){
-    cout << tuple_ptr->ball_list[k] << endl;
+    //cout << tuple_ptr->ball_list[k] << endl;
     if (tuple_ptr->ball_list[k] == ballID) //search thru vector to erase ballid from ball list so wont be relocated by accidnet
     {
       tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin() + k);
-      cout << "ERASED " << ballID << endl; //appears to be entering okay
-      cout << "removed from " << index << endl;
+      //cout << "ERASED " << ballID << endl; //appears to be entering okay
+      //cout << "removed from " << index << endl;
       //assert(tuple_ptr->ball_list.size() == bucket[index].at(0).count);
       break;
     }
@@ -356,9 +273,9 @@ void spill_ball(uns64 index, uns64 ballID){
   //reflect the pointer count to match the new count, this can just be a decremet, would probs be faster
   tuple_ptr->count--;
 
-  cout << "spill tuple cnt " << tuple_ptr->count << endl;
-  cout << "spill bucket cnt " << bucket[index].at(0).count << endl;
-  cout << "spill size " << tuple_ptr->ball_list.size() << endl;
+  //cout << "spill tuple cnt " << tuple_ptr->count << endl;
+  //cout << "spill bucket cnt " << bucket[index].at(0).count << endl;
+  //cout << "spill size " << tuple_ptr->ball_list.size() << endl;
   assert(tuple_ptr->ball_list.size() == bucket[index].at(0).count);
   //heapify down to correct ordering as count is decreased
   pq.heapify_downwards(index);
@@ -389,8 +306,8 @@ void spill_ball(uns64 index, uns64 ballID){
       tuple_spill->count++;
       //add ball to bucket balls vector
       tuple_spill->ball_list.push_back(ballID);
-      cout << "ballid that was added in spill " << ballID << endl;
-      cout << "ball was add to " << spill_index << endl;
+      //cout << "ballid that was added in spill " << ballID << endl;
+      //cout << "ball was add to " << spill_index << endl;
 
       //heapify up to correct ordering as count is increased
       pq.heapify_upwards(tuple_spill->index);
@@ -481,12 +398,12 @@ uns insert_ball(uns64 ballID){
 
 
   bool spill_occured = false;
-  cout << "ball id in insert " << ballID << endl;
+  //cout << "ball id in insert " << ballID << endl;
         //----------- SPILL --------
   if(SPILL_THRESHOLD && (retval >= SPILL_THRESHOLD)){
     //Overwrite balls[ballID] with spill_index.
     
-    cout << "IN SPILL\n" <<endl;
+    //cout << "IN SPILL\n" <<endl;
     spill_ball(index,ballID); //should this return spill idex???
 
 
@@ -513,7 +430,7 @@ uns insert_ball(uns64 ballID){
 
   //it appears that relocate is never being entered tho :(((((
   if(tuple_ptr->index == 0 && init_buckets_done == true && bucket[index].at(0).count != 0) {
-    cout << "RELOCATE\n" <<endl;
+    //cout << "RELOCATE\n" <<endl;
     //cout << "Before relocation - Bucket count: " << bucket[index_local].at(0).count << endl;
 
     relocate2(tuple_ptr);
@@ -836,7 +753,7 @@ void relocate(bucket_tuple* tuple_ptr, uns64 ballID) {
   uns64 count = tuple_last->count;
 
   //note count already decremnted here
-  cout << "Relocating ballID: " << ballID << " from bucket: " << buck_to_move << " to bucket: " << bucket_to_reloc << "with count " <<bucket[buck_to_move].at(0).count+1 << endl;
+  //cout << "Relocating ballID: " << ballID << " from bucket: " << buck_to_move << " to bucket: " << bucket_to_reloc << "with count " <<bucket[buck_to_move].at(0).count+1 << endl;
 
   //add ball to less bucket to relocate it to
   tuple_last->ball_list.push_back(ballID); //add ball to less used cache line
@@ -857,8 +774,8 @@ void relocate(bucket_tuple* tuple_ptr, uns64 ballID) {
   uns64 idx = tuple_last->index;
   //cout << "new idx " << idx << endl; //index is staying the same?
 
-  cout << "After relocation, count in bucket to move: " << bucket[buck_to_move].at(0).count << endl;
-  cout << "After relocation, count in destination bucket: " << bucket[bucket_to_reloc].at(0).count << endl;
+  //cout << "After relocation, count in bucket to move: " << bucket[buck_to_move].at(0).count << endl;
+  //cout << "After relocation, count in destination bucket: " << bucket[bucket_to_reloc].at(0).count << endl;
 
   number_relocations++;
 }
@@ -871,12 +788,17 @@ void relocate2(bucket_tuple* tuple_ptr) {
 
     bucket_tuple* tuple_last =  pq.get_count_zero();
 
+    bucket_tuple* tuple_last1;
+
     if (tuple_last == nullptr) {
-      cout << "NO EMPTY BUCKETS" << endl;
-      return;
+      //cout << "NO EMPTY BUCKETS" << endl;
+      number_empty_buckets++;
+      tuple_last1 = pq.get_count_one();
+      if (tuple_last1 == nullptr) {
+        //cout << "NO BUCKETS WITH 1 BALL" << endl;
+        return;
+      }
     }
-
-
 
     //cout << "tuple count " << tuple_last->count << endl;
     //cout << "bucket count " << bucket[bucket_to_reloc].at(0).count << endl;
@@ -887,10 +809,10 @@ void relocate2(bucket_tuple* tuple_ptr) {
     //std::remove(tuple_ptr->ball_list.begin(), tuple_ptr->ball_list.end(), ballID),
     //tuple_ptr->ball_list.end());
 
-    cout << "bucket id recieved" << buck_to_move << endl;
+    //cout << "bucket id recieved" << buck_to_move << endl;
     //cout << "ball id to erase" << ballID << endl;
     uns64 firstBall = tuple_ptr->ball_list.front();
-    cout << "first ball in bucket " << firstBall << endl;
+    //cout << "first ball in bucket " << firstBall << endl;
 
     tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin()); 
 
@@ -914,9 +836,9 @@ void relocate2(bucket_tuple* tuple_ptr) {
     tuple_ptr->count--;
     bucket[buck_to_move].at(0).count--;
 
-    cout << "tuple count " << tuple_ptr->count << endl;
-    cout << "bucket count " << bucket[buck_to_move].at(0).count << endl;
-    cout << "size before " << tuple_ptr->ball_list.size() << endl;
+    //cout << "tuple count " << tuple_ptr->count << endl;
+    //cout << "bucket count " << bucket[buck_to_move].at(0).count << endl;
+    //cout << "size before " << tuple_ptr->ball_list.size() << endl;
 
     assert(tuple_ptr->ball_list.size() == bucket[buck_to_move].at(0).count);
 
@@ -930,16 +852,16 @@ void relocate2(bucket_tuple* tuple_ptr) {
     uns64 index_to_reloc = tuple_last->index;
     uns64 bucket_to_reloc = tuple_last->bucket;
 
-    cout << "last tuple count " << tuple_last->count << endl;
-    cout << "last bucket count " << bucket[bucket_to_reloc].at(0).count << endl;
-    cout << "last size before" << tuple_last->ball_list.size() << endl;
+    //cout << "last tuple count " << tuple_last->count << endl;
+    //cout << "last bucket count " << bucket[bucket_to_reloc].at(0).count << endl;
+    //cout << "last size before" << tuple_last->ball_list.size() << endl;
 
     // Move the ball to the new bucket
 
     tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
-    cout << "inserted ball" << endl;
+    //cout << "inserted ball" << endl;
     tuple_last->count++;
-    cout << "tuple count " << tuple_last->count << endl;
+    //cout << "tuple count " << tuple_last->count << endl;
     bucket[bucket_to_reloc].at(0).count++;
     balls[firstBall] = bucket_to_reloc;
     //tuple_last->index = index_to_reloc;
@@ -948,21 +870,21 @@ void relocate2(bucket_tuple* tuple_ptr) {
     pq.heapify_downwards(0);
 
     // Print relocation details
-    cout << "Relocating ballID: " << firstBall << " from bucket: " << buck_to_move
-         << " to bucket: " << bucket_to_reloc << " with count " << bucket[buck_to_move].at(0).count + 1 << endl;
+    //cout << "Relocating ballID: " << firstBall << " from bucket: " << buck_to_move
+    //     << " to bucket: " << bucket_to_reloc << " with count " << bucket[buck_to_move].at(0).count + 1 << endl;
 
-    cout << "After relocation, count in bucket to move: " << bucket[buck_to_move].at(0).count << endl;
-    cout << "After relocation, count in destination bucket: " << bucket[bucket_to_reloc].at(0).count << endl;
+    //cout << "After relocation, count in bucket to move: " << bucket[buck_to_move].at(0).count << endl;
+    //cout << "After relocation, count in destination bucket: " << bucket[bucket_to_reloc].at(0).count << endl;
 
     number_relocations++;
 
     //assert(tuple_last->ball_list.size() -1 == bucket[bucket_to_reloc].at(0).count);
-    cout << "after tuple count " << tuple_last->count << endl;
-    cout << "after bucket count " << bucket[bucket_to_reloc].at(0).count << endl;
-    cout << "after size " << tuple_last->ball_list.size() << endl;
+    //cout << "after tuple count " << tuple_last->count << endl;
+    //cout << "after bucket count " << bucket[bucket_to_reloc].at(0).count << endl;
+    //cout << "after size " << tuple_last->ball_list.size() << endl;
 
     assert(tuple_last->ball_list.size() == bucket[bucket_to_reloc].at(0).count);
-    cout << "RELOCATE DONE\n" <<endl;
+    //cout << "RELOCATE DONE\n" <<endl;
 }
 
 
@@ -1014,6 +936,8 @@ int main(int argc, char* argv[]){
       printf(".");fflush(stdout);
       get_max_element();
       get_min_element();
+      cout << "Number of relocations: " << number_relocations << endl;
+      cout << "Number of empty buckets: " << number_empty_buckets << endl;
     }    
     //Ensure Total Balls in Buckets is Conserved.
     sanity_check();
