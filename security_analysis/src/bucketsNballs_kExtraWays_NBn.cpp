@@ -14,7 +14,7 @@ using namespace std;
 // COMMAND-LINE ARGUMENTS
 /////////////////////////////////////////////////////
 //argv[1] : EXTRA TAGS PER SET (PER SKEW)
-int EXTRA_BUCKET_CAPACITY = 2;  //set extra tags to 2
+int EXTRA_BUCKET_CAPACITY = 3;  //set extra tags to 1 for now!
 
 //argv[2] : NUMBER OF BALLS THROWN
 int NUM_BILLION_TRIES = 1;
@@ -121,7 +121,9 @@ MTRand *mtrand=new MTRand();
 uns64 number_relocations = 0; 
 
 uns64 number_empty_buckets = 0;
+
 uns64 number_no_1 = 0;
+
 uns64 number_no_2 = 0;
 
 
@@ -857,6 +859,7 @@ int main(int argc, char* argv[]){
   //print_heap();
 
   printf("Starting --  (Dot printed every 100M Ball throws) \n");
+  cout << "extra buck cap " << EXTRA_BUCKET_CAPACITY << endl;
 
   //N Billion Ball Throws
   for (uns64 bn_i=0 ; bn_i < NUM_BILLION_TRIES; bn_i++) {    
@@ -869,7 +872,7 @@ int main(int argc, char* argv[]){
       }
       printf(".");fflush(stdout);
       get_max_element();
-      get_min_element();
+      //get_min_element(); this causes seg fault if there are no zero count buckets
       cout << "Number of relocations: " << number_relocations << endl;
       cout << "Number of no empty buckets: " << number_empty_buckets << endl;
       cout << "Number of no 1 buckets: " << number_no_1 << endl;
