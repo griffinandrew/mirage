@@ -332,9 +332,15 @@ GriffinsAwesomePriorityQueue pq;
 void spill_ball(uns64 index, uns64 ballID){
   uns done=0;
 
+  bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
+
+  cout << "start spill tuple cnt " << tuple_ptr->count << endl;
+  cout << "start spill bucket cnt " << bucket[index].at(0).count << endl;
+  cout << "start spill size " << tuple_ptr->ball_list.size() << endl;
+
   //decrement count of bucket that is full
   bucket[index].at(0).count--;
-  bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
+  //bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
   //remove inserted ball from bucket balls vector
   for (uns64 k =0; k < tuple_ptr->ball_list.size(); ++k){
     if (tuple_ptr->ball_list[k] == ballID) //search thru vector to erase ballid from ball list so wont be relocated by accidnet
@@ -345,6 +351,11 @@ void spill_ball(uns64 index, uns64 ballID){
   }
   //reflect the pointer count to match the new count, this can just be a decremet, would probs be faster
   tuple_ptr->count--;
+
+  cout << "spill tuple cnt " << tuple_ptr->count << endl;
+  cout << "spill bucket cnt " << bucket[index].at(0).count << endl;
+  cout << "spill size " << tuple_ptr->ball_list.size() << endl;
+  assert(tuple_ptr->ball_list.size() == bucket[index].at(0).count);
   //heapify down to correct ordering as count is decreased
   pq.heapify_downwards(index);
 
@@ -377,8 +388,7 @@ void spill_ball(uns64 index, uns64 ballID){
       uns64 index_local = tuple_ptr->index; //this should be the balls location
       //heapify up to correct ordering as count is increased
       pq.heapify_upwards(index_local);
-      //or should this be spill index?? 
-      //tuple_ptr->index index should be updated!!!
+
      
     } else {
       assert(bucket[spill_index].at(0).count == SPILL_THRESHOLD);
@@ -439,7 +449,16 @@ uns insert_ball(uns64 ballID){
   retval = bucket[index].at(0).count;
 
   //update count of bucket that ball is inserted into 
+
+  bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
   bucket[index].at(0).count++;
+  tuple_ptr->count++;
+  tuple_ptr->ball_list.push_back(ballID);
+
+  pq.heapify_upwards(tuple_ptr->index);
+
+
+
 
   //cout << "Inserting ballID: " << ballID << " into bucket: " << index << " with count: " << bucket[index].at(0).count << endl;
 
@@ -452,31 +471,46 @@ uns insert_ball(uns64 ballID){
   if(SPILL_THRESHOLD && (retval >= SPILL_THRESHOLD)){
     //Overwrite balls[ballID] with spill_index.
     
-    //cout << "in spill\n" <<endl;
+    cout << "IN SPILL\n" <<endl;
     spill_ball(index,ballID);
     //return retval;  
   }
 
   //get pointer to update needed values
-  bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
+  //bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
   //update pointer count to match the new count
-  tuple_ptr->count = bucket[index].at(0).count;
+  //tuple_ptr->count++;
   //add ball id to current bucket
-  tuple_ptr->ball_list.push_back(ballID);
+  //tuple_ptr->ball_list.push_back(ballID);
 
-  uns64 index_local = tuple_ptr->index; //this should be the balls location
+  //uns64 index_local = tuple_ptr->index; //this should be the balls location
+  //uns64 bucket_id = tuple_ptr->bucket; //this should be the balls location
 
   //heapify up to correct ordering as count is increased 
-  pq.heapify_upwards(index_local);
+  //pq.heapify_upwards(index_local);
 
   //check if the ball is at the top of the heap, if so relocate it to a less full bucket
   //unsure if this should be above spill or not
-  if(tuple_ptr->index == 0 && init_buckets_done == true) {
-    //cout << "in relocate\n" <<endl;
+  if(tuple_ptr->index == 0 && init_buckets_done == true && bucket[index].at(0).count != 0) {
+    cout << "RELOCATE\n" <<endl;
     //cout << "Before relocation - Bucket count: " << bucket[index_local].at(0).count << endl;
 
     relocate2(tuple_ptr, ballID);
   }
+
+  cout << "tuple cnt " << tuple_ptr->count << endl;
+  cout << "bucket cnt " << bucket[bucket_id].at(0).count << endl;
+  cout << "size " << tuple_ptr->ball_list.size() << endl;
+  assert(tuple_ptr->ball_list.size() == bucket[bucket_id].at(0).count);
+
+        //----------- SPILL --------
+  //if(SPILL_THRESHOLD && (retval >= SPILL_THRESHOLD)){
+    //Overwrite balls[ballID] with spill_index.
+    
+    //cout << "in spill\n" <<endl;
+   // spill_ball(index,ballID);
+    //return retval;  
+  //}
 
   //cout << "After insertion, count in bucket: " << bucket[index].at(0).count << endl;
   return retval; 
@@ -536,6 +570,12 @@ uns64 remove_ball(void){
   tuple_ptr->ball_list.erase(
   std::remove(tuple_ptr->ball_list.begin(), tuple_ptr->ball_list.end(), ballID),
   tuple_ptr->ball_list.end());
+
+
+  cout << "tuple count " << tuple_ptr->count << endl;
+  cout << "bucket count " << bucket[bucket_index].at(0).count << endl;
+  cout << "size before" << tuple_ptr->ball_list.size() << endl;
+  assert(tuple_ptr->ball_list.size() == bucket[bucket_index].at(0).count);
   
   /*
   for (uns64 k =0; k < tuple_ptr->ball_list.size(); ++k){
@@ -810,14 +850,21 @@ void relocate2(bucket_tuple* tuple_ptr, uns64 ballID) {
     tuple_ptr->ball_list.erase(
     std::remove(tuple_ptr->ball_list.begin(), tuple_ptr->ball_list.end(), ballID),
     tuple_ptr->ball_list.end());
+
     tuple_ptr->count--;
     bucket[buck_to_move].at(0).count--;
+
+    pq.heapify_downwards(index_in_heap);
 
     // Get a random destination bucket
     //uns64 bucket_id_to_reloc = mtrand->randInt(NUM_BUCKETS);
     bucket_tuple* tuple_last =  pq.get_count_zero();
     uns64 index_to_reloc = tuple_last->index;
     uns64 bucket_to_reloc = tuple_last->bucket;
+
+    cout << "tuple count " << tuple_last->count << endl;
+    cout << "bucket count " << bucket[bucket_to_reloc].at(0).count << endl;
+    cout << "size before" << tuple_last->ball_list.size() << endl;
 
     // Move the ball to the new bucket
     tuple_last->ball_list.push_back(ballID); //add ball to less used cache line??
@@ -839,9 +886,10 @@ void relocate2(bucket_tuple* tuple_ptr, uns64 ballID) {
     number_relocations++;
 
     //assert(tuple_last->ball_list.size() -1 == bucket[bucket_to_reloc].at(0).count);
-    cout << "tuple count " << tuple_last->count << endl;
-    cout << "bucket count " << bucket[bucket_to_reloc].at(0).count << endl;
-    cout << "size " << tuple_last->ball_list.size() << endl;
+    cout << "after tuple count " << tuple_last->count << endl;
+    cout << "after bucket count " << bucket[bucket_to_reloc].at(0).count << endl;
+    cout << "after size " << tuple_last->ball_list.size() << endl;
+
     assert(tuple_last->ball_list.size() == bucket[bucket_to_reloc].at(0).count);
 }
 
