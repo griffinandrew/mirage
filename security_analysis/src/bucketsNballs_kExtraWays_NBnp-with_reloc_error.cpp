@@ -94,8 +94,6 @@ vector<bucket_value> bucket[NUM_BUCKETS];
 //just fucntion declaration
 void relocate(bucket_tuple* tuple_ptr, uns64 ballID);
 
-void relocate2(bucket_tuple* tuple_ptr, uns64 ballID);
-
 //For each Ball (Cache-Line), which Bucket (Set) it is in
 //(Data-Structure Similar to Data-Store RPTR)
 uns64 balls[NUM_BUCKETS*BALLS_PER_BUCKET];
@@ -211,6 +209,7 @@ private:
   }
 
 private:
+
   //the issue is that this DS is very being modified when buckets is!!!!
   vector<bucket_tuple*> storage_;
 };
@@ -475,7 +474,7 @@ uns insert_ball(uns64 ballID){
     //cout << "in relocate\n" <<endl;
     //cout << "Before relocation - Bucket count: " << bucket[index_local].at(0).count << endl;
 
-    relocate2(tuple_ptr, ballID);
+    relocate(tuple_ptr, ballID);
   }
 
   //cout << "After insertion, count in bucket: " << bucket[index].at(0).count << endl;
@@ -505,12 +504,10 @@ uns64 remove_ball(void){
     cout << "Bucket count: " << this_tuple->count << endl;
     cout << "Bucket index: " << this_tuple->index << endl;
     cout << "Bucket id: " << this_tuple->bucket << endl;
-    cout << "Balls size" << this_tuple->ball_list.size() << endl;
-    //if balls size is not 0 then why is count 0?? mrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+    
   }
 
-  assert(bucket[bucket_index].at(0).count != 0);  
-  //isnt this saying that no bucket can be empty? which is not true........ wtf
+  assert(bucket[bucket_index].at(0).count != 0 );  
 
   //cout << "Removing ballID: " << ballID << " from bucket: " << bucket_index << " with count: " << bucket[bucket_index].at(0).count << endl;
 
@@ -531,11 +528,6 @@ uns64 remove_ball(void){
   uns64 index_local = tuple_ptr->index;
 
   //search thru vector to erase ballid from ball list so wont be relocated by accidnet
-  tuple_ptr->ball_list.erase(
-    std::remove(tuple_ptr->ball_list.begin(), tuple_ptr->ball_list.end(), ballID),
-    tuple_ptr->ball_list.end());
-  
-  /*
   for (uns64 k =0; k < tuple_ptr->ball_list.size(); ++k){
     if (tuple_ptr->ball_list[k] == ballID) 
     {
@@ -543,7 +535,6 @@ uns64 remove_ball(void){
       break;
     }
   }
-  */
   
   pq.heapify_downwards(index_local);
 
@@ -598,17 +589,6 @@ void sanity_check(void){
   }
 }
 
-
-
-bool check_empty_buckets() {
-  for (uns64 ii = 0; ii < NUM_BUCKETS; ii++) {
-    if (bucket[ii].at(0).count == 0) {
-      return true;
-    }
-  }
-  return false;
-}
-
 /////////////////////////////////////////////////////
 // Randomly Initialize all the Buckets with Balls (NumBuckets * BallsPerBucket) 
 /////////////////////////////////////////////////////
@@ -640,6 +620,7 @@ void init_buckets(void){
     //bucket is unqiue id for each bucket
     mytuple->bucket = ii; 
     pq.push(mytuple); //this heapfies
+    //bucket[ii] = mytuple; //set pointer to tuple in bucket 
     bucket[ii].at(1).tuple_ptr = mytuple;
   }
 
@@ -653,19 +634,10 @@ void init_buckets(void){
     stat_counts[ii]=0;
   }
 
-  bool check = check_empty_buckets();
-
-  if (check == true) {
-    cout << "There are empty buckets" << endl;
-  }
-
   sanity_check();
   init_buckets_done = true;
   printf("done init buckets\n");
 }
-
-
-
 
 
 /////////////////////////////////////////////////////
@@ -730,16 +702,6 @@ void relocate(bucket_tuple* tuple_ptr, uns64 ballID) {
   //now swap out ball that was inserted
 
   //search for ball to be relocated in bucket balls vector and erase it, then decrease count
-  
-  tuple_ptr->ball_list.erase(
-  std::remove(tuple_ptr->ball_list.begin(), tuple_ptr->ball_list.end(), ballID),
-  tuple_ptr->ball_list.end());
-  tuple_ptr->count--;
-  bucket[buck_to_move].at(0).count--;
-
-
-  
-  /*
   for (uns64 k =0; k < tuple_ptr->ball_list.size(); ++k){
     if (tuple_ptr->ball_list[k] == ballID) //search thru vector to erase ballid from ball list so wont be relocated by accidnet
     {
@@ -749,20 +711,13 @@ void relocate(bucket_tuple* tuple_ptr, uns64 ballID) {
       break;
     }
   }
-  */
 
   //correct heap ordering with new deleted ball 
 
   //pq.heapify_downwards(index_in_heap); 
 
   //get the bucket with the least amount of balls, or just the first bucket with 0 balls
-  //bucket_tuple* tuple_last = pq.get_count_zero();
-
-
-  uns64 bucket_id_to_reloc = mtrand->randInt(NUM_BUCKETS); //get random bucket to relocate ball to??? 
-
-  //really this is random but whatever
-  bucket_tuple* tuple_last  = bucket[bucket_id_to_reloc].at(1).tuple_ptr;
+  bucket_tuple* tuple_last = pq.get_count_zero();
 
   uns64 index_to_reloc = tuple_last->index; //also in heap
   //get the bucket id of the bucket with the least amount of balls
@@ -799,48 +754,6 @@ void relocate(bucket_tuple* tuple_ptr, uns64 ballID) {
   number_relocations++;
 }
 
-
-void relocate2(bucket_tuple* tuple_ptr, uns64 ballID) {
-    uns64 index_in_heap = tuple_ptr->index;
-    uns64 buck_to_move = tuple_ptr->bucket;
-
-    // Remove the ball from the current bucket
-    for (uns64 k = 0; k < tuple_ptr->ball_list.size(); ++k) {
-        if (tuple_ptr->ball_list[k] == ballID) {
-            tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin() + k);
-            tuple_ptr->count--;
-            bucket[buck_to_move].at(0).count--;
-            break;
-        }
-    }
-
-    // Get a random destination bucket
-    //uns64 bucket_id_to_reloc = mtrand->randInt(NUM_BUCKETS);
-    bucket_tuple* tuple_last =  pq.get_count_zero();
-    uns64 index_to_reloc = tuple_last->index;
-    uns64 bucket_to_reloc = tuple_last->bucket;
-
-    // Move the ball to the new bucket
-    tuple_last->ball_list.push_back(ballID);
-    tuple_last->count++;
-    bucket[bucket_to_reloc].at(0).count++;
-    balls[ballID] = bucket_to_reloc;
-    //tuple_last->index = index_to_reloc;
-
-    // Fix the heap ordering
-    pq.heapify_downwards(0);
-
-    // Print relocation details
-    cout << "Relocating ballID: " << ballID << " from bucket: " << buck_to_move
-         << " to bucket: " << bucket_to_reloc << " with count " << bucket[buck_to_move].at(0).count + 1 << endl;
-
-    cout << "After relocation, count in bucket to move: " << bucket[buck_to_move].at(0).count << endl;
-    cout << "After relocation, count in destination bucket: " << bucket[bucket_to_reloc].at(0).count << endl;
-
-    number_relocations++;
-}
-
-
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
 void print_heap() {
@@ -873,7 +786,7 @@ int main(int argc, char* argv[]){
   //Initialize Buckets
   init_buckets();
   sanity_check();
-  //print_heap();
+  print_heap();
 
   printf("Starting --  (Dot printed every 100M Ball throws) \n");
 
@@ -896,6 +809,7 @@ int main(int argc, char* argv[]){
     printf(" %llu\n",bn_i+1);fflush(stdout);    
   }
   cout << number_relocations << endl;
+  //display_max_heap_elements();
   
 
   printf("\n\nBucket-Occupancy Snapshot at End of Experiment\n");
