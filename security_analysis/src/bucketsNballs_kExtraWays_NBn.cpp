@@ -933,6 +933,30 @@ void relocate(bucket_tuple* tuple_ptr) {
       case 7:
         amount_to_relcoate = 1;
         break;
+      case 8:
+        amount_to_relcoate = 1;
+        break;
+      case 9:
+        amount_to_relcoate = 1;
+        break;
+      case 10:
+        amount_to_relcoate = 1;
+        break;
+      case 11:
+        amount_to_relcoate = 1;
+        break;
+      case 12:  
+        amount_to_relcoate = 1;
+        break;
+      case 13:
+        amount_to_relcoate = 1;
+        break;
+      case 14:
+        amount_to_relcoate = 1;
+        break;
+      case 15:
+        amount_to_relcoate = 1;
+        break;
       default:
         break;
     }
@@ -1038,7 +1062,7 @@ int main(int argc, char* argv[]){
       cout << "Number of no 13 buckets: " << number_no_13 << endl;
       cout << "Number of no 14 buckets: " << number_no_14 << endl;
       cout << "Number of no 15 buckets: " << number_no_15 << endl;
-      
+
     }    
     //Ensure Total Balls in Buckets is Conserved.
     sanity_check();
