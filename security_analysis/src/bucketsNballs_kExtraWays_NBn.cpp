@@ -56,8 +56,8 @@ int SPILL_THRESHOLD = BALLS_PER_BUCKET + EXTRA_BUCKET_CAPACITY;
 
 //Experiment Size
 //#define BILLION_TRIES             (1000*1000*1000)
-#define BILLION_TRIES (1000*1000) //thus is 1 bill i tihnk 
-#define HUNDRED_MILLION_TRIES     (100*1000*1000)
+#define BILLION_TRIES (1000*1000) //thus is 1 1 i tihnk 
+#define HUNDRED_MILLION_TRIES     (10*1000)
 
 //Types
 typedef unsigned int uns;
@@ -254,32 +254,19 @@ void spill_ball(uns64 index, uns64 ballID){
   uns done=0;
 
   bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
-
-  //cout << "start spill tuple cnt " << tuple_ptr->count << endl;
-  //cout << "start spill bucket cnt " << bucket[index].at(0).count << endl;
-  //cout << "start spill size " << tuple_ptr->ball_list.size() << endl;
-
   //decrement count of bucket that is full
   bucket[index].at(0).count--;
-  //bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
   //remove inserted ball from bucket balls vector
   for (uns64 k =0; k < tuple_ptr->ball_list.size(); ++k){
-    //cout << tuple_ptr->ball_list[k] << endl;
     if (tuple_ptr->ball_list[k] == ballID) //search thru vector to erase ballid from ball list so wont be relocated by accidnet
     {
       tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin() + k);
-      //cout << "ERASED " << ballID << endl; //appears to be entering okay
-      //cout << "removed from " << index << endl;
-      //assert(tuple_ptr->ball_list.size() == bucket[index].at(0).count);
       break;
     }
   }
   //reflect the pointer count to match the new count, this can just be a decremet, would probs be faster
   tuple_ptr->count--;
 
-  //cout << "spill tuple cnt " << tuple_ptr->count << endl;
-  //cout << "spill bucket cnt " << bucket[index].at(0).count << endl;
-  //cout << "spill size " << tuple_ptr->ball_list.size() << endl;
   assert(tuple_ptr->ball_list.size() == bucket[index].at(0).count);
   //heapify down to correct ordering as count is decreased
   pq.heapify_downwards(index);
@@ -310,8 +297,6 @@ void spill_ball(uns64 index, uns64 ballID){
       tuple_spill->count++;
       //add ball to bucket balls vector
       tuple_spill->ball_list.push_back(ballID);
-      //cout << "ballid that was added in spill " << ballID << endl;
-      //cout << "ball was add to " << spill_index << endl;
 
       //heapify up to correct ordering as count is increased
       pq.heapify_upwards(tuple_spill->index);
@@ -383,18 +368,15 @@ uns insert_ball(uns64 ballID){
   retval = bucket[index].at(0).count;
 
   //update count of bucket that ball is inserted into 
-
   bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
   bucket[index].at(0).count++;
   tuple_ptr->count++;
 
-  //i am adding that bucket to the list!!!
-  tuple_ptr->ball_list.push_back(ballID); //ball should be added to the bucket balls vector here!!!!
+  //add ball id to current bucket
+  tuple_ptr->ball_list.push_back(ballID); //ball should be added to the bucket balls vector 
 
+    //heapify up to correct ordering as count is increased 
   pq.heapify_upwards(tuple_ptr->index);
-
-
-  //cout << "Inserting ballID: " << ballID << " into bucket: " << index << " with count: " << bucket[index].at(0).count << endl;
 
   //Track which bucket the new Ball was inserted in
   assert(balls[ballID] == (uns64)-1);
@@ -402,60 +384,24 @@ uns insert_ball(uns64 ballID){
 
 
   bool spill_occured = false;
-  //cout << "ball id in insert " << ballID << endl;
+
         //----------- SPILL --------
   if(SPILL_THRESHOLD && (retval >= SPILL_THRESHOLD)){
     //Overwrite balls[ballID] with spill_index.
-    
-    //cout << "IN SPILL\n" <<endl;
-    spill_ball(index,ballID); //should this return spill idex???
-
-
+    spill_ball(index,ballID); 
     spill_occured = true;
-    //return retval;  
   }
 
-  //get pointer to update needed values
-  //bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
-  //update pointer count to match the new count
-  //tuple_ptr->count++;
-  //add ball id to current bucket
-  //tuple_ptr->ball_list.push_back(ballID);
-
-  //uns64 index_local = tuple_ptr->index; //this should be the balls location
   uns64 bucket_id = tuple_ptr->bucket; //this should be the balls location
 
-  //heapify up to correct ordering as count is increased 
-  //pq.heapify_upwards(index_local);
 
-  //check if the ball is at the top of the heap, if so relocate it to a less full bucket
-  //unsure if this should be above spill or not
+  //if(tuple_ptr->index == 0 && init_buckets_done == true && bucket[index].at(0).count != 0) {
+  if(init_buckets_done == true && bucket[bucket_id].at(0).count >= BASE_WAYS_PER_SKEW) {
+    relocate(tuple_ptr); //now just every time a ball is inserted it is relocated
+  } 
 
-
-  //it appears that relocate is never being entered tho :(((((
-  if(tuple_ptr->index == 0 && init_buckets_done == true && bucket[index].at(0).count != 0) {
-    //cout << "RELOCATE\n" <<endl;
-    //cout << "Before relocation - Bucket count: " << bucket[index_local].at(0).count << endl;
-
-    relocate(tuple_ptr);
-    //this ballID is stale if it has been changed in relocate 
-  } //so maybe?? 
-
-  //cout << "tuple cnt " << tuple_ptr->count << endl;
-  //cout << "bucket cnt " << bucket[bucket_id].at(0).count << endl;
-  //cout << "size " << tuple_ptr->ball_list.size() << endl;
   assert(tuple_ptr->ball_list.size() == bucket[bucket_id].at(0).count);
 
-        //----------- SPILL --------
-  //if(SPILL_THRESHOLD && (retval >= SPILL_THRESHOLD)){
-    //Overwrite balls[ballID] with spill_index.
-    
-    //cout << "in spill\n" <<endl;
-   // spill_ball(index,ballID);
-    //return retval;  
-  //}
-
-  //cout << "After insertion, count in bucket: " << bucket[index].at(0).count << endl;
   return retval; 
 }
 
@@ -471,10 +417,6 @@ uns64 remove_ball(void){
   assert(balls[ballID] != (uns64)-1);
   uns64 bucket_index = balls[ballID]; //bucket index is just the bucket id
 
-  // get bucket tuple
-  //bucket_tuple* this_tuple = bucket[bucket_index].at(1).tuple_ptr; 
-  //cout << bucket[bucket_index].at(0).count << endl;
-  // check that bucket is not empty
 
   if (bucket[bucket_index].at(0).count == 0) {
     cout << "Bucket is empty" << endl;
@@ -483,16 +425,10 @@ uns64 remove_ball(void){
     cout << "Bucket index: " << this_tuple->index << endl;
     cout << "Bucket id: " << this_tuple->bucket << endl;
     cout << "Balls size" << this_tuple->ball_list.size() << endl;
-    //if balls size is not 0 then why is count 0?? mrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
   }
   
 
-  //WHY IS THIS HAPPENING???
-  assert(bucket[bucket_index].at(0).count != 0);  
-  //isnt this saying that no bucket can be empty? which is not true........ wtf
-
-  //cout << "Removing ballID: " << ballID << " from bucket: " << bucket_index << " with count: " << bucket[bucket_index].at(0).count << endl;
-
+  assert(bucket[bucket_index].at(0).count != 0);
 
   // modify count of bucket
   bucket[bucket_index].at(0).count--;
@@ -501,12 +437,11 @@ uns64 remove_ball(void){
   balls[ballID] = -1;
 
 
-  //this is not needed as repeating set from above
+  // get bucket tuple
   bucket_tuple* tuple_ptr = bucket[bucket_index].at(1).tuple_ptr;
 
   //set the count of the tuple to the new count
   tuple_ptr->count--;
-  //get the index for heapify? check this step
   uns64 index_local = tuple_ptr->index;
 
   //search thru vector to erase ballid from ball list so wont be relocated by accidnet
@@ -520,19 +455,7 @@ uns64 remove_ball(void){
   }
   assert(tuple_ptr->ball_list.size() == bucket[bucket_index].at(0).count);
   
-  /*
-  for (uns64 k =0; k < tuple_ptr->ball_list.size(); ++k){
-    if (tuple_ptr->ball_list[k] == ballID) 
-    {
-      tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin() + k);
-      break;
-    }
-  }
-  */
-  
-  pq.heapify_downwards(index_local);
-
-  //cout << "After removal, count in bucket: " << bucket[bucket_index].at(0).count << endl;
+  pq.heapify_downwards(tuple_ptr->index);
 
   // Return BallID removed (ID will be reused for new ball to be inserted)  
   return ballID;
@@ -584,7 +507,6 @@ void sanity_check(void){
 }
 
 
-
 bool check_empty_buckets() {
   for (uns64 ii = 0; ii < NUM_BUCKETS; ii++) {
     if (bucket[ii].at(0).count == 0) {
@@ -603,31 +525,34 @@ void init_buckets(void){
   assert(NUM_SKEWS * NUM_BUCKETS_PER_SKEW == NUM_BUCKETS);
   
   //Initialize Buckets with correct data structures
-
-  //ensure that this is doing what I think it is!!
   
   for(ii=0; ii<NUM_BUCKETS; ii++){
     bucket_value count_value = {0};
     bucket[ii].push_back(count_value); //ad 0 to first entry in all vectors
     bucket_value null_value = {0};
     bucket[ii].push_back(null_value); //add empty entry in all buckets to place pointer to heap tuple
-  }
-  
 
-  for (ii=0; ii<NUM_BUCKETS; ++ii){
-
+    //now assign tuple
     bucket_tuple* mytuple = new bucket_tuple(); //j, count);
     mytuple->count = 0;
     mytuple->index = 0; // i explicitly set the index in the push operation in the heap
-    
-    //set index to 0 and have heapfify in push determine the ordering??
-
     //bucket is unqiue id for each bucket
     mytuple->bucket = ii; 
     pq.push(mytuple); //this heapfies
     bucket[ii].at(1).tuple_ptr = mytuple;
   }
+  
+  /*for (ii=0; ii<NUM_BUCKETS; ++ii){
 
+    bucket_tuple* mytuple = new bucket_tuple(); //j, count);
+    mytuple->count = 0;
+    mytuple->index = 0; // i explicitly set the index in the push operation in the heap
+    //bucket is unqiue id for each bucket
+    mytuple->bucket = ii; 
+    pq.push(mytuple); //this heapfies
+    bucket[ii].at(1).tuple_ptr = mytuple;
+  }
+  */
  
   for(ii=0; ii<(NUM_BUCKETS*BALLS_PER_BUCKET); ii++){
     balls[ii] = -1;
@@ -704,15 +629,12 @@ void get_min_element(void) {
 // ////////////////////////////////////////////////
 
 
-
 //what if instead of removing that ball id just remove the one at the front?
 void relocate(bucket_tuple* tuple_ptr) {
     uns64 index_in_heap = tuple_ptr->index;
     uns64 buck_to_move = tuple_ptr->bucket;
 
     bucket_tuple* tuple_last = pq.get_count_zero();
-
-    //bucket_tuple* tuple_last1;
 
     if (tuple_last == nullptr) {
       //cout << "NO EMPTY BUCKETS" << endl;
@@ -730,97 +652,37 @@ void relocate(bucket_tuple* tuple_ptr) {
 
     if (tuple_last == nullptr) {
       number_no_2++;
-      cout << "FAILED" << endl;
+      //cout << "FAILED" << endl;
       //cout << "NO BUCKETS WITH 2 BALLS" << endl;
-      //tuple_last = pq.get_element(0);
       return; // just dont relocate?? 
     }
 
-    //cout << "tuple count " << tuple_last->count << endl;
-    //cout << "bucket count " << bucket[bucket_to_reloc].at(0).count << endl;
-    //cout << "size before" << tuple_last->ball_list.size() << endl;
-
-    // Remove the ball from the current bucket
-    //tuple_ptr->ball_list.erase(
-    //std::remove(tuple_ptr->ball_list.begin(), tuple_ptr->ball_list.end(), ballID),
-    //tuple_ptr->ball_list.end());
-
-    //cout << "bucket id recieved" << buck_to_move << endl;
-    //cout << "ball id to erase" << ballID << endl;
     uns64 firstBall = tuple_ptr->ball_list.front();
-    //cout << "first ball in bucket " << firstBall << endl;
 
+  //erase bucket at the front of the list 
     tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin()); 
-
- 
-    /*
-    for (uns64 k =0; k < tuple_ptr->ball_list.size(); ++k){
-      cout << tuple_ptr->ball_list[k] << endl;
-      if (tuple_ptr->ball_list[k] == ballID) //search thru vector to erase ballid from ball list so wont be relocated by accidnet
-      {
-        tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin() + k);
-        cout << "ERASED in reloc" << endl;
-        break;
-      }
-    }
-    */
-
-
-    //ball is not being erased from ball list!!!! why tho?
-
 
     tuple_ptr->count--;
     bucket[buck_to_move].at(0).count--;
-
-    //cout << "tuple count " << tuple_ptr->count << endl;
-    //cout << "bucket count " << bucket[buck_to_move].at(0).count << endl;
-    //cout << "size before " << tuple_ptr->ball_list.size() << endl;
 
     assert(tuple_ptr->ball_list.size() == bucket[buck_to_move].at(0).count);
 
     pq.heapify_downwards(index_in_heap);
 
-    // Get a random destination bucket
-    //uns64 bucket_id_to_reloc = mtrand->randInt(NUM_BUCKETS);
-
-
-    //wait this is returning a non zero bucket???
-    uns64 index_to_reloc = tuple_last->index;
     uns64 bucket_to_reloc = tuple_last->bucket;
-
-    //cout << "last tuple count " << tuple_last->count << endl;
-    //cout << "last bucket count " << bucket[bucket_to_reloc].at(0).count << endl;
-    //cout << "last size before" << tuple_last->ball_list.size() << endl;
-
     // Move the ball to the new bucket
 
     tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
-    //cout << "inserted ball" << endl;
     tuple_last->count++;
-    //cout << "tuple count " << tuple_last->count << endl;
     bucket[bucket_to_reloc].at(0).count++;
     balls[firstBall] = bucket_to_reloc;
-    //tuple_last->index = index_to_reloc;
 
     // Fix the heap ordering
-    pq.heapify_downwards(0);
-
-    // Print relocation details
-    //cout << "Relocating ballID: " << firstBall << " from bucket: " << buck_to_move
-    //     << " to bucket: " << bucket_to_reloc << " with count " << bucket[buck_to_move].at(0).count + 1 << endl;
-
-    //cout << "After relocation, count in bucket to move: " << bucket[buck_to_move].at(0).count << endl;
-    //cout << "After relocation, count in destination bucket: " << bucket[bucket_to_reloc].at(0).count << endl;
+    pq.heapify_downwards(tuple_last->index);
 
     number_relocations++;
 
-    //assert(tuple_last->ball_list.size() -1 == bucket[bucket_to_reloc].at(0).count);
-    //cout << "after tuple count " << tuple_last->count << endl;
-    //cout << "after bucket count " << bucket[bucket_to_reloc].at(0).count << endl;
-    //cout << "after size " << tuple_last->ball_list.size() << endl;
-
     assert(tuple_last->ball_list.size() == bucket[bucket_to_reloc].at(0).count);
-    //cout << "RELOCATE DONE\n" <<endl;
 }
 
 
@@ -856,7 +718,6 @@ int main(int argc, char* argv[]){
   //Initialize Buckets
   init_buckets();
   sanity_check();
-  //print_heap();
 
   printf("Starting --  (Dot printed every 100M Ball throws) \n");
   cout << "extra buck cap " << EXTRA_BUCKET_CAPACITY << endl;
