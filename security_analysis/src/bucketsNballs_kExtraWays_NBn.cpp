@@ -125,6 +125,8 @@ uns64 number_no_1 = 0;
 
 uns64 number_no_2 = 0;
 
+uns64 number_no_3 = 0;
+
 
 
 /////////////////////////////////////////////////////
@@ -236,6 +238,7 @@ public:
     if(two_found == false) {
       for (const auto& element : storage_) {
         if (element->count == 3) {
+          number_no_3++;
           bool three_found = true;
           return element;
         }
@@ -433,17 +436,6 @@ uns64 remove_ball(void){
   assert(balls[ballID] != (uns64)-1);
   uns64 bucket_index = balls[ballID]; //bucket index is just the bucket id
 
-
-  if (bucket[bucket_index].at(0).count == 0) {
-    cout << "Bucket is empty" << endl;
-    bucket_tuple* this_tuple = bucket[bucket_index].at(1).tuple_ptr;
-    cout << "Bucket count: " << this_tuple->count << endl;
-    cout << "Bucket index: " << this_tuple->index << endl;
-    cout << "Bucket id: " << this_tuple->bucket << endl;
-    cout << "Balls size" << this_tuple->ball_list.size() << endl;
-  }
-  
-
   assert(bucket[bucket_index].at(0).count != 0);
 
   // modify count of bucket
@@ -465,10 +457,6 @@ uns64 remove_ball(void){
   std::remove(tuple_ptr->ball_list.begin(), tuple_ptr->ball_list.end(), ballID),
   tuple_ptr->ball_list.end());
 
-  if(tuple_ptr->ball_list.size() != bucket[bucket_index].at(0).count) {
-    cout << "ball list size " << tuple_ptr->ball_list.size() << endl;
-    cout << "bucket count " << bucket[bucket_index].at(0).count << endl;
-  }
   assert(tuple_ptr->ball_list.size() == bucket[bucket_index].at(0).count);
   
   pq.heapify_downwards(tuple_ptr->index);
@@ -637,33 +625,54 @@ void relocate(bucket_tuple* tuple_ptr) {
       number_empty_buckets++;
       return;
     }
-    
-    uns64 firstBall = tuple_ptr->ball_list.front();
 
-  //erase bucket at the front of the list 
-    tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin()); 
+    uns64 amount_to_relcoate = 0; 
 
-    tuple_ptr->count--;
-    bucket[buck_to_move].at(0).count--;
+    switch(tuple_last->count) {
+      case 0:
+        amount_to_relcoate = 2;
+        break;
+      case 1:
+        amount_to_relcoate = 2;
+        break;
+      case 2:
+        amount_to_relcoate = 1;
+        break;
+      case 3:
+       amount_to_relcoate = 1;
+        break;
+      default:
+        break;
+    }
 
-    assert(tuple_ptr->ball_list.size() == bucket[buck_to_move].at(0).count);
 
-    pq.heapify_downwards(index_in_heap);
+    for (uns64 i = 0; i < amount_to_relcoate; ++i) {
+      uns64 firstBall = tuple_ptr->ball_list.front();
 
-    uns64 bucket_to_reloc = tuple_last->bucket;
-    // Move the ball to the new bucket
+    //erase bucket at the front of the list 
+      tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin()); 
 
-    tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
-    tuple_last->count++;
-    bucket[bucket_to_reloc].at(0).count++;
-    balls[firstBall] = bucket_to_reloc;
+      tuple_ptr->count--;
+      bucket[buck_to_move].at(0).count--;
 
-    // Fix the heap ordering
-    pq.heapify_downwards(tuple_last->index);
+      assert(tuple_ptr->ball_list.size() == bucket[buck_to_move].at(0).count);
 
-    number_relocations++;
+      pq.heapify_downwards(index_in_heap);
 
-    assert(tuple_last->ball_list.size() == bucket[bucket_to_reloc].at(0).count);
+      uns64 bucket_to_reloc = tuple_last->bucket;
+      // Move the ball to the new bucket
+
+      tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
+      tuple_last->count++;
+      bucket[bucket_to_reloc].at(0).count++;
+      balls[firstBall] = bucket_to_reloc;
+
+      // Fix the heap ordering
+      pq.heapify_downwards(tuple_last->index);
+
+      number_relocations++;
+      assert(tuple_last->ball_list.size() == bucket[bucket_to_reloc].at(0).count);
+  }
 }
 
 
@@ -719,6 +728,7 @@ int main(int argc, char* argv[]){
       cout << "Number of no empty buckets: " << number_empty_buckets << endl;
       cout << "Number of no 1 buckets: " << number_no_1 << endl;
       cout << "Number of no 2 buckets: " << number_no_2 << endl;
+      cout << "Number of no 3 buckets: " << number_no_3 << endl;
     }    
     //Ensure Total Balls in Buckets is Conserved.
     sanity_check();
