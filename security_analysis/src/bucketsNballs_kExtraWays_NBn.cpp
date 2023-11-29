@@ -57,7 +57,10 @@ int SPILL_THRESHOLD = BALLS_PER_BUCKET + EXTRA_BUCKET_CAPACITY;
 //Experiment Size
 //#define BILLION_TRIES             (1000*1000*1000)
 #define BILLION_TRIES (1000*1000) //thus is 1 1 i tihnk 
-#define HUNDRED_MILLION_TRIES     (10*1000)
+#define HUNDRED_MILLION_TRIES     (10*1000) //for 4 ways use size 10*1000
+
+
+/////////////////////////////////////////////////////
 
 //Types
 typedef unsigned int uns;
@@ -127,6 +130,23 @@ uns64 number_no_2 = 0;
 
 uns64 number_no_3 = 0;
 
+uns64 number_no_4 = 0;
+uns64 number_no_5 = 0;
+uns64 number_no_6 = 0;
+uns64 number_no_7 = 0;
+uns64 number_no_8 = 0;
+uns64 number_no_9 = 0;
+uns64 number_no_10 = 0;
+uns64 number_no_11 = 0;
+uns64 number_no_12 = 0;
+uns64 number_no_13 = 0;
+
+uns64 number_no_14 = 0;
+uns64 number_no_15 = 0;
+
+
+
+uns64 CURR_NUM_WAYS = 0;
 
 
 /////////////////////////////////////////////////////
@@ -203,7 +223,7 @@ public:
     return val;
   }
 
-  bucket_tuple* get_least_filled(){
+    bucket_tuple* get_least_filled_4ways(){
     //this linearly searches for the first element with count 0 
     bool zero_found = false;
     bool one_found = false;
@@ -238,13 +258,258 @@ public:
     if(two_found == false) {
       for (const auto& element : storage_) {
         if (element->count == 3) {
-          number_no_3++;
           bool three_found = true;
           return element;
         }
       }
     }
     return nullptr;
+  }
+
+  bucket_tuple* get_least_filled_8ways(){
+      bool zero_found = false;
+      bool one_found = false;
+      bool two_found = false;
+      bool three_found = false;
+      bool four_found = false;
+      bool five_found = false;
+      bool six_found = false;
+      bool seven_found = false;
+
+      for (const auto& element : storage_) {
+        if (element->count == 0) {
+          number_empty_buckets++;
+          bool zero_found = true;
+          return element;
+        }
+      }
+      if (zero_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 1) {
+            number_no_1++;
+            bool one_found = true;
+            return element;
+          }
+        }
+      }
+      if(one_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 2) {
+            number_no_2++;  
+            bool two_found = true;
+            return element;
+          }
+        }
+      }
+      if(two_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 3) {
+            number_no_3++;
+            bool three_found = true;
+            return element;
+          }
+        }
+      }
+      if(three_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 4) {
+            number_no_4++;
+            bool four_found = true;
+            return element;
+          }
+        }
+      }
+      if(four_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 5) {
+            number_no_5++;
+            bool five_found = true;
+            return element;
+          }
+        }
+      }
+      if(five_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 6) {
+            number_no_6++;
+            bool six_found = true;
+            return element;
+          }
+        }
+      }
+      if(six_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 7) {
+            number_no_7++;
+            bool seven_found = true;
+            return element;
+          }
+        }
+      }
+      return nullptr;
+  }
+
+  bucket_tuple* get_least_filled_16ways(){
+      bool zero_found = false;
+      bool one_found = false;
+      bool two_found = false;
+      bool three_found = false;
+      bool four_found = false;
+      bool five_found = false;
+      bool six_found = false;
+      bool seven_found = false;
+      bool eight_found = false;
+      bool nine_found = false;
+      bool ten_found = false;
+      bool eleven_found = false;
+      bool twelve_found = false;
+      bool thirteen_found = false;
+      bool fourteen_found = false;
+      bool fifteen_found = false;
+
+      for (const auto& element : storage_) {
+        if (element->count == 0) {
+          number_empty_buckets++;
+          bool zero_found = true;
+          return element;
+        }
+      }
+      if (zero_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 1) {
+            number_no_1++;
+            bool one_found = true;
+            return element;
+          }
+        }
+      }
+      if(one_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 2) {
+            number_no_2++;  
+            bool two_found = true;
+            return element;
+          }
+        }
+      }
+      if(two_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 3) {
+            number_no_3++;
+            bool three_found = true;
+            return element;
+          }
+        }
+      }
+      if(three_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 4) {
+            number_no_4++;
+            bool four_found = true;
+            return element;
+          }
+        }
+      }
+      if(four_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 5) {
+            number_no_5++;
+            bool five_found = true;
+            return element;
+          }
+        }
+      }
+      if(five_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 6) {
+            number_no_6++;
+            bool six_found = true;
+            return element;
+          }
+        }
+      }
+      if(six_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 7) {
+            number_no_7++;
+            bool seven_found = true;
+            return element;
+          }
+        }
+      }
+      if(seven_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 8) {
+            number_no_8++;
+            bool eight_found = true;
+            return element;
+          }
+        }
+      }
+      if(eight_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 9) {
+            number_no_9++;
+            bool nine_found = true;
+            return element;
+          }
+        }
+      }
+      if(nine_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 10) {
+            number_no_10++;
+            bool ten_found = true;
+            return element;
+          }
+        }
+      }
+      if(ten_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 11) {
+            number_no_11++;
+            bool eleven_found = true;
+            return element;
+          }
+        }
+      }
+      if(eleven_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 12) {
+            number_no_12++;
+            bool twelve_found = true;
+            return element;
+          }
+        }
+      }
+      if(twelve_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 13) {
+            number_no_13++;
+            bool thirteen_found = true;
+            return element;
+          }
+        }
+      }
+      if(thirteen_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 14) {
+            number_no_14++;
+            bool fourteen_found = true;
+            return element;
+          }
+        }
+      }
+      if(fourteen_found == false) {
+        for (const auto& element : storage_) {
+          if (element->count == 15) {
+            number_no_15++;
+            bool fifteen_found = true;
+            return element;
+          }
+        }
+      }
+      return nullptr;
   }
 
 
@@ -614,12 +879,27 @@ void get_max_element(void){
 // ////////////////////////////////////////////////
 
 
-//what if instead of removing that ball id just remove the one at the front?
+//this is going to half to be different for different ways!!!!!!!!
 void relocate(bucket_tuple* tuple_ptr) {
     uns64 index_in_heap = tuple_ptr->index;
     uns64 buck_to_move = tuple_ptr->bucket;
+    bucket_tuple* tuple_last = nullptr;
 
-    bucket_tuple* tuple_last = pq.get_least_filled();
+    switch(CURR_NUM_WAYS) {
+      case 4:
+        tuple_last = pq.get_least_filled_4ways();
+        break;
+      case 8:
+        tuple_last = pq.get_least_filled_8ways();
+        break;
+      case 16:
+        tuple_last = pq.get_least_filled_16ways();
+        break;
+      default:
+        break;
+    }
+
+    //bucket_tuple* tuple_last = pq.get_least_filled_4ways();
 
     if (tuple_last == nullptr) {
       number_empty_buckets++;
@@ -640,6 +920,18 @@ void relocate(bucket_tuple* tuple_ptr) {
         break;
       case 3:
        amount_to_relcoate = 1;
+        break;
+      case 4:
+        amount_to_relcoate = 1;
+        break;
+      case 5:
+        amount_to_relcoate = 1;
+        break;
+      case 6:
+        amount_to_relcoate = 1;
+        break;
+      case 7:
+        amount_to_relcoate = 1;
         break;
       default:
         break;
@@ -693,11 +985,15 @@ void print_heap() {
 int main(int argc, char* argv[]){
 
   //Get arguments:
-  assert((argc == 4) && "Need 3 arguments: (EXTRA_BUCKET_CAPACITY:[0-8] BN_BALL_THROWS:[1-10^5] SEED:[1-400])");
+  //assert((argc == 4) && "Need 3 arguments: (EXTRA_BUCKET_CAPACITY:[0-8] BN_BALL_THROWS:[1-10^5] SEED:[1-400])");
   EXTRA_BUCKET_CAPACITY = atoi(argv[1]);
   SPILL_THRESHOLD = BASE_WAYS_PER_SKEW + EXTRA_BUCKET_CAPACITY;
   NUM_BILLION_TRIES  = atoi(argv[2]);
   myseed = atoi(argv[3]);
+
+  CURR_NUM_WAYS = atoi(argv[4]);
+  cout << "curr num ways " << CURR_NUM_WAYS << endl;
+
 
   printf("Cache Configuration: %d MB, %d skews, %d ways (%d ways/skew)\n",CACHE_SZ_BYTES/1024/1024,NUM_SKEWS,NUM_SKEWS*BASE_WAYS_PER_SKEW,BASE_WAYS_PER_SKEW);
   printf("AVG-BALLS-PER-BUCKET:%d, BUCKET-SPILL-THRESHOLD:%d \n",BASE_WAYS_PER_SKEW,SPILL_THRESHOLD);
@@ -729,6 +1025,20 @@ int main(int argc, char* argv[]){
       cout << "Number of no 1 buckets: " << number_no_1 << endl;
       cout << "Number of no 2 buckets: " << number_no_2 << endl;
       cout << "Number of no 3 buckets: " << number_no_3 << endl;
+
+      cout << "Number of no 4 buckets: " << number_no_4 << endl;
+      cout << "Number of no 5 buckets: " << number_no_5 << endl;
+      cout << "Number of no 6 buckets: " << number_no_6 << endl;
+      cout << "Number of no 7 buckets: " << number_no_7 << endl;
+      cout << "Number of no 8 buckets: " << number_no_8 << endl;
+      cout << "Number of no 9 buckets: " << number_no_9 << endl;
+      cout << "Number of no 10 buckets: " << number_no_10 << endl;
+      cout << "Number of no 11 buckets: " << number_no_11 << endl;
+      cout << "Number of no 12 buckets: " << number_no_12 << endl;
+      cout << "Number of no 13 buckets: " << number_no_13 << endl;
+      cout << "Number of no 14 buckets: " << number_no_14 << endl;
+      cout << "Number of no 15 buckets: " << number_no_15 << endl;
+      
     }    
     //Ensure Total Balls in Buckets is Conserved.
     sanity_check();
