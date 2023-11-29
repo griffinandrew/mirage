@@ -397,7 +397,7 @@ uns insert_ball(uns64 ballID){
 
   //if(tuple_ptr->index == 0 && init_buckets_done == true && bucket[index].at(0).count != 0) {
   if(init_buckets_done == true && bucket[bucket_id].at(0).count >= BASE_WAYS_PER_SKEW) {
-    relocate(tuple_ptr); //now just every time a ball is inserted it is relocated
+    //relocate(tuple_ptr); //now just every time a ball is inserted it is relocated
   } 
 
   assert(tuple_ptr->ball_list.size() == bucket[bucket_id].at(0).count);
