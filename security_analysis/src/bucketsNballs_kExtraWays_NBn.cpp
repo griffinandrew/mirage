@@ -678,14 +678,13 @@ uns insert_ball(uns64 ballID){
 
   //why am i relocating if at average tho?? this is not needed!!!
   //if(bucket[bucket_id].at(0).count >= SPILL_THRESHOLD) 
-  if(bucket[bucket_id].at(0).count  > BASE_WAYS_PER_SKEW){ //but now night shouldnt this not be the case?? because it already spilled?? MFs
+  if(bucket[bucket_id].at(0).count  > BALLS_PER_BUCKET){ //but now night shouldnt this not be the case?? because it already spilled?? MFs
     relocate(tuple_ptr); //now just every time a ball is inserted it is relocated
   } 
 
   ////////////////////////////////////////////////////////////////
 
-
-        //----------- SPILL --------
+  //----------- SPILL --------
   if(SPILL_THRESHOLD && (retval >= SPILL_THRESHOLD)){
     //Overwrite balls[ballID] with spill_index.
     spill_ball(index,ballID); 
