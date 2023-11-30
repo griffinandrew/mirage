@@ -128,6 +128,7 @@ uns64 number_empty_buckets = 0;
 //this is used for LRU heuristic
 uns64 current_timestamp = 0;
 
+
 //can prob delete now
 uns64 number_no_1 = 0;
 uns64 number_no_2 = 0;
@@ -543,6 +544,8 @@ void spill_ball(uns64 index, uns64 ballID){
   uns done=0;
 
   ////////////////////////////////////////////////////////
+  //below are changes
+
   bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
   //decrement count of bucket that is full
   bucket[index].at(0).count--;
@@ -559,9 +562,7 @@ void spill_ball(uns64 index, uns64 ballID){
       break;
     }
   }
-
-  cout << "spill ball " << tuple_ptr->count << endl;
-  cout << "spill count " << bucket[index].at(0).count << endl;
+  //above are changes
   //////////////////////////////////////////////////////
 
 
@@ -579,6 +580,7 @@ void spill_ball(uns64 index, uns64 ballID){
       done=1;
 
       ////////////////////////////////////////////////////////////////
+      //below are changes
      
       //set the ball to the new bucket
       balls[ballID] = spill_index;
@@ -593,12 +595,10 @@ void spill_ball(uns64 index, uns64 ballID){
       //heapify up to correct ordering as count is increased
       pq.heapify_upwards(tuple_spill->index);
 
+      //above are changes
       ////////////////////////////////////////////////////////////////
      
     } else {
-      cout << "spill index " << spill_index << endl;
-      cout << "count " << bucket[spill_index].at(0).count << endl;
-      cout << "spill threshold " << SPILL_THRESHOLD << endl;
       assert(bucket[spill_index].at(0).count == SPILL_THRESHOLD);
       //if bucket of spill_index is also full, then recursive-spill, we call this a cuckoo-spill
       index = spill_index;
@@ -659,7 +659,8 @@ uns insert_ball(uns64 ballID){
 
   retval = bucket[index].at(0).count;
 
-  //////////////////////////////////////////////////////////////// 
+  ////////////////////////////////////////////////////////////////
+  //below are changes 
 
   //get pointer to update needed values
   bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
@@ -678,6 +679,7 @@ uns insert_ball(uns64 ballID){
   //on second thought is this not just index??
   uns64 bucket_id = tuple_ptr->bucket;
 
+  //above are changes
   ////////////////////////////////////////////////////////////////
 
   //Track which bucket the new Ball was inserted in
@@ -685,6 +687,7 @@ uns insert_ball(uns64 ballID){
   balls[ballID] = index;
 
   ////////////////////////////////////////////////////////////////
+  //below are changes
 
   //why am i relocating if at average tho?? this is not needed!!!
   //if(bucket[bucket_id].at(0).count >= SPILL_THRESHOLD) 
@@ -693,6 +696,7 @@ uns insert_ball(uns64 ballID){
     relocate_LRU(tuple_ptr);
   } 
 
+  //above are changes
   ////////////////////////////////////////////////////////////////
 
   //----------- SPILL --------
@@ -700,7 +704,6 @@ uns insert_ball(uns64 ballID){
     //Overwrite balls[ballID] with spill_index.
     spill_ball(index,ballID); 
   }
-
 
   return retval; 
 }
@@ -720,7 +723,7 @@ uns64 remove_ball(void){
   assert(bucket[bucket_index].at(0).count != 0);
 
   ////////////////////////////////////////////////////////////////
-  ////////////////////////////////////////////////////////////////
+  //below are changes
 
   // modify count of bucket
   bucket[bucket_index].at(0).count--;
@@ -738,7 +741,7 @@ uns64 remove_ball(void){
   
   pq.heapify_downwards(tuple_ptr->index);
   
-  ////////////////////////////////////////////////////////////////
+  //above are changes
   ////////////////////////////////////////////////////////////////
 
   // -1 signals that ball is not assigned
@@ -748,8 +751,8 @@ uns64 remove_ball(void){
   return ballID;
 }
 
-  ////////////////////////////////////////////////////////////////
-  ////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
 
 void display_histogram(void){
   uns ii;
@@ -772,8 +775,9 @@ void display_histogram(void){
   printf("\n");
 }
 
-  ////////////////////////////////////////////////////////////////
-  ////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+//sanity check to insure no corruption
+////////////////////////////////////////////////////////////////
 
 void sanity_check(void){
   uns ii, count=0;
@@ -807,6 +811,7 @@ void init_buckets(void){
   for(ii=0; ii<NUM_BUCKETS; ii++){
 
     /////////////////////////////////////////////////
+    //below are changes
 
     //add 0 to first entry in all vectors as place holder for count
     bucket_value count_value = {0};
@@ -828,6 +833,7 @@ void init_buckets(void){
     //set the pointer to the tuple in the bucket
     bucket[ii].at(1).tuple_ptr = mytuple;
 
+    //above are changes
     /////////////////////////////////////////////////
   }
    
@@ -871,6 +877,7 @@ uns  remove_and_insert(void){
 
 
 /////////////////////////////////////////////////////
+//get number of balls to relocate based on how many balls are in the bucket
 /////////////////////////////////////////////////////
 
 //detect how many balls to relocate based on how many balls are in the bucket, guesses for now, but work well
@@ -933,6 +940,7 @@ uns64 get_number_to_relocate(bucket_tuple* tuple_ptr)
 }
 
 /////////////////////////////////////////////////////
+//ideal relocate function, that creates even distribution
 /////////////////////////////////////////////////////
 
 void relocate(bucket_tuple* tuple_ptr) {
@@ -964,7 +972,6 @@ void relocate(bucket_tuple* tuple_ptr) {
     //var to keep track of how many balls to relocate
     uns64 amount_to_relcoate = get_number_to_relocate(tuple_ptr); 
 
-
     for (uns64 i = 0; i < amount_to_relcoate; ++i) {
       //get the first ball in the bucket to remove
       uns64 firstBall = tuple_ptr->ball_list.front();
@@ -992,10 +999,13 @@ void relocate(bucket_tuple* tuple_ptr) {
 }
 
 
+/////////////////////////////////////////////////////
+//relocate function, that mimics LRU
+/////////////////////////////////////////////////////
+
 void relocate_LRU(bucket_tuple* tuple_ptr) {
     uns64 index_in_heap = tuple_ptr->index;
     uns64 buck_to_move = tuple_ptr->bucket;
-    //bucket_tuple* tuple_last = nullptr;
 
     bucket_tuple* tuple_last = pq.get_element(0);
     for (uns64 i = 1; i < pq.size(); ++i) {
@@ -1004,11 +1014,11 @@ void relocate_LRU(bucket_tuple* tuple_ptr) {
         tuple_last = current_tuple;
       }
     }
-    cout << "tuple last " << tuple_last->count << endl;
     
     if (tuple_last == nullptr) {
       return;
     }
+
     if (tuple_last->count == SPILL_THRESHOLD) {
       return;
     }
@@ -1034,7 +1044,6 @@ void relocate_LRU(bucket_tuple* tuple_ptr) {
 
     // Fix the heap ordering
     pq.heapify_downwards(tuple_last->index);
-
 }
 
 
