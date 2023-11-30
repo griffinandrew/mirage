@@ -860,46 +860,11 @@ uns  remove_and_insert(void){
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
 
-// ///////////////////////////////////////////////
-//use a max heap to keep track of element that is most full
-//preemptively redistrubute to lessen used bucket
-// ////////////////////////////////////////////////
-
-
-
-/////////////////////////////////////////////////////
-/////////////////////////////////////////////////////
-void relocate(bucket_tuple* tuple_ptr) {
-    uns64 index_in_heap = tuple_ptr->index;
-    uns64 buck_to_move = tuple_ptr->bucket;
-    bucket_tuple* tuple_last = nullptr;
-
-    //determine which bucket to relocate to based on the number of ways
-    switch(CURR_NUM_WAYS) {
-      case 4:
-        tuple_last = pq.get_least_filled_4ways();
-        break;
-      case 8:
-        tuple_last = pq.get_least_filled_8ways();
-        break;
-      case 16:
-        tuple_last = pq.get_least_filled_16ways();
-        break;
-      default:
-        break;
-    }
-
-    //if there is no bucket to relocate to, then just return  
-    if (tuple_last == nullptr) {
-      number_empty_buckets++;
-      return;
-    }
-
-    //var to keep track of how many balls to relocate
-    uns64 amount_to_relcoate = 0; 
-
-    //detect how many balls to relocate based on how many balls are in the bucket, guesses for now, but work well
-    switch(tuple_last->count) {
+//detect how many balls to relocate based on how many balls are in the bucket, guesses for now, but work well
+uns64 get_number_to_relocate(bucket_tuple* tuple_ptr) 
+{
+  uns64 amount_to_relcoate = 0; 
+  switch(tuple_ptr->count) {
       case 0:
         amount_to_relcoate = 2;
         break;
@@ -951,6 +916,40 @@ void relocate(bucket_tuple* tuple_ptr) {
       default:
         break;
     }
+    return amount_to_relcoate;
+}
+
+/////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
+
+void relocate(bucket_tuple* tuple_ptr) {
+    uns64 index_in_heap = tuple_ptr->index;
+    uns64 buck_to_move = tuple_ptr->bucket;
+    bucket_tuple* tuple_last = nullptr;
+
+    //determine which bucket to relocate to based on the number of ways
+    switch(CURR_NUM_WAYS) {
+      case 4:
+        tuple_last = pq.get_least_filled_4ways();
+        break;
+      case 8:
+        tuple_last = pq.get_least_filled_8ways();
+        break;
+      case 16:
+        tuple_last = pq.get_least_filled_16ways();
+        break;
+      default:
+        break;
+    }
+
+    //if there is no bucket to relocate to, then just return  
+    if (tuple_last == nullptr) {
+      number_empty_buckets++;
+      return;
+    }
+
+    //var to keep track of how many balls to relocate
+    uns64 amount_to_relcoate = get_number_to_relocate(tuple_ptr); 
 
 
     for (uns64 i = 0; i < amount_to_relcoate; ++i) {
@@ -966,7 +965,6 @@ void relocate(bucket_tuple* tuple_ptr) {
       pq.heapify_downwards(index_in_heap);
 
       // Move the ball to the new bucket
-
       tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
       tuple_last->count++;
       bucket[tuple_last->bucket].at(0).count++;
