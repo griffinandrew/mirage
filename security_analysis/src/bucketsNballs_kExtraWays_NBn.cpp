@@ -81,6 +81,7 @@ struct bucket_tuple {
   uns64 bucket; //bucket id
   uns64 index; //current location in the heap
   uns64 access_count; //number of times bucket has been accessed, used for LRU
+  uns64 frequency; //number of times bucket has been accessed, used for LFU
 };
 
 union bucket_value {
@@ -91,10 +92,12 @@ union bucket_value {
 //having count twice is not needed so use tuple pointer for count 
 vector<bucket_value> bucket[NUM_BUCKETS];
 
-//just fucntion declaration
+//just fucntion declarations
 void relocate(bucket_tuple* tuple_ptr);
 
 void relocate_LRU(bucket_tuple* tuple_ptr);
+
+void relocate_LFU(bucket_tuple* tuple_ptr);
 
 
 //For each Ball (Cache-Line), which Bucket (Set) it is in
@@ -522,7 +525,6 @@ private:
   }
 
 private:
-  //the issue is that this DS is very being modified when buckets is!!!!
   vector<bucket_tuple*> storage_;
 };
 
@@ -537,7 +539,6 @@ GriffinsAwesomePriorityQueue pq;
 // -- Based on which skew spill happened;
 // -- cuckoo into other recursively.
 /////////////////////////////////////////////////////
-
 
 
 void spill_ball(uns64 index, uns64 ballID){
@@ -562,6 +563,7 @@ void spill_ball(uns64 index, uns64 ballID){
       break;
     }
   }
+
   //above are changes
   //////////////////////////////////////////////////////
 
@@ -590,11 +592,16 @@ void spill_ball(uns64 index, uns64 ballID){
       bucket[spill_index].at(0).count++;
       //set the count of the tuple to the new count
       tuple_spill->count++;
+      //update access count of bucket
+      tuple_spill->access_count = current_timestamp++;
+      //uodate frequency count of bucket
+      tuple_spill->frequency++;
       //add ball to bucket balls vector
       tuple_spill->ball_list.push_back(ballID);
       //heapify up to correct ordering as count is increased
       pq.heapify_upwards(tuple_spill->index);
-
+      
+      
       //above are changes
       ////////////////////////////////////////////////////////////////
      
@@ -670,6 +677,8 @@ uns insert_ball(uns64 ballID){
   tuple_ptr->count++;
   //update access count of bucket
   tuple_ptr->access_count = current_timestamp++;
+  //uodate frequency count of bucket
+  tuple_ptr->frequency++;
   //add ball id to current bucket
   tuple_ptr->ball_list.push_back(ballID); //ball should be added to the bucket balls vector 
   //heapify up to correct ordering as count is increased 
@@ -693,7 +702,8 @@ uns insert_ball(uns64 ballID){
   //if(bucket[bucket_id].at(0).count >= SPILL_THRESHOLD) 
   if(bucket[bucket_id].at(0).count  > BALLS_PER_BUCKET){ //but now night shouldnt this not be the case?? because it already spilled?? MFs
     //relocate(tuple_ptr); //now just every time a ball is inserted it is relocated
-    relocate_LRU(tuple_ptr);
+    //relocate_LRU(tuple_ptr);
+    relocate_LFU(tuple_ptr);
   } 
 
   //above are changes
@@ -828,6 +838,8 @@ void init_buckets(void){
     mytuple->bucket = ii; 
     //add access counters
     mytuple->access_count = 0;
+    //add frequency counters
+    mytuple->frequency = 0;
     //this heapfies and adds to heap
     pq.push(mytuple);
     //set the pointer to the tuple in the bucket
@@ -996,6 +1008,7 @@ void relocate(bucket_tuple* tuple_ptr) {
 
       number_relocations++;
   }
+  
 }
 
 
@@ -1044,6 +1057,64 @@ void relocate_LRU(bucket_tuple* tuple_ptr) {
 
     // Fix the heap ordering
     pq.heapify_downwards(tuple_last->index);
+
+    number_relocations++;
+}
+
+
+
+/////////////////////////////////////////////////////
+//relocate function, that mimics LFU
+/////////////////////////////////////////////////////
+
+void relocate_LFU(bucket_tuple* tuple_ptr) {
+    uns64 index_in_heap = tuple_ptr->index;
+    uns64 buck_to_move = tuple_ptr->bucket;
+
+    bucket_tuple* tuple_last = pq.get_element(0);
+    for (uns64 i = 1; i < pq.size(); ++i) {
+      bucket_tuple* current_tuple = pq.get_element(i);
+      if (current_tuple->frequency < tuple_last->frequency) {
+        tuple_last = current_tuple;
+      }
+    }
+    //cout << "tuple last count " << tuple_last->frequency << endl;
+    
+    if (tuple_last == nullptr) {
+      return;
+    }
+
+    if (tuple_last->count == SPILL_THRESHOLD) {
+      return;
+    }
+
+    //var to keep track of how many balls to relocate
+    uns64 amount_to_relcoate = get_number_to_relocate(tuple_ptr); 
+
+    for (uns64 i = 0; i < amount_to_relcoate; ++i) {
+      //get the first ball in the bucket to remove
+      uns64 firstBall = tuple_ptr->ball_list.front();
+      //erase bucket at the front of the list 
+      tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin()); 
+
+      //decrement the count of the bucket that is being relocated from
+      tuple_ptr->count--;
+      bucket[buck_to_move].at(0).count--;
+      //heapify down to correct ordering as count is decreased
+      pq.heapify_downwards(index_in_heap);
+
+      // Move the ball to the new bucket
+      tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
+      tuple_last->count++;
+      bucket[tuple_last->bucket].at(0).count++;
+      //this is the reason why I must keep track of the balls 
+      balls[firstBall] = tuple_last->bucket;
+
+      // Fix the heap ordering
+      pq.heapify_downwards(tuple_last->index);
+
+      number_relocations++;
+  }
 }
 
 
