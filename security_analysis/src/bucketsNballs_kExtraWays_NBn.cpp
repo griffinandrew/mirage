@@ -699,10 +699,11 @@ uns insert_ball(uns64 ballID){
   //below are changes
 
   //why am i relocating if at average tho?? this is not needed!!!
-  //if(bucket[bucket_id].at(0).count >= SPILL_THRESHOLD) 
-  if(bucket[bucket_id].at(0).count  > BALLS_PER_BUCKET){ //but now night shouldnt this not be the case?? because it already spilled?? MFs
+  //if(bucket[bucket_id].at(0).count >= SPILL_THRESHOLD) {
+  if(bucket[bucket_id].at(0).count  > BALLS_PER_BUCKET ){ //but now night shouldnt this not be the case?? because it already spilled?? MFs
     //relocate(tuple_ptr); //now just every time a ball is inserted it is relocated
     //relocate_LRU(tuple_ptr);
+    //cout << "in relocate LFU" << endl;
     relocate_LFU(tuple_ptr);
   } 
 
@@ -893,45 +894,45 @@ uns  remove_and_insert(void){
 /////////////////////////////////////////////////////
 
 //detect how many balls to relocate based on how many balls are in the bucket, guesses for now, but work well
-uns64 get_number_to_relocate(bucket_tuple* tuple_ptr) 
+uns64 get_number_to_relocate_16(bucket_tuple* tuple_ptr) 
 {
   uns64 amount_to_relcoate = 0; 
   switch(tuple_ptr->count) {
       case 0:
-        amount_to_relcoate = 2;
+        amount_to_relcoate = 3;
         break;
       case 1:
-        amount_to_relcoate = 2;
+        amount_to_relcoate = 3;
         break;
       case 2:
-        amount_to_relcoate = 1;
+        amount_to_relcoate = 3;
         break;
       case 3:
-       amount_to_relcoate = 1;
+       amount_to_relcoate = 3;
         break;
       case 4:
-        amount_to_relcoate = 1;
+        amount_to_relcoate = 3;
         break;
       case 5:
-        amount_to_relcoate = 1;
+        amount_to_relcoate = 3;
         break;
       case 6:
-        amount_to_relcoate = 1;
+        amount_to_relcoate = 3;
         break;
       case 7:
-        amount_to_relcoate = 1;
+        amount_to_relcoate = 3;
         break;
       case 8:
-        amount_to_relcoate = 1;
+        amount_to_relcoate = 3;
         break;
       case 9:
-        amount_to_relcoate = 1;
+        amount_to_relcoate = 2;
         break;
       case 10:
-        amount_to_relcoate = 1;
+        amount_to_relcoate = 2;
         break;
       case 11:
-        amount_to_relcoate = 1;
+        amount_to_relcoate = 2;
         break;
       case 12:  
         amount_to_relcoate = 1;
@@ -951,6 +952,72 @@ uns64 get_number_to_relocate(bucket_tuple* tuple_ptr)
     return amount_to_relcoate;
 }
 
+
+
+uns64 get_number_to_relocate_8(bucket_tuple* tuple_ptr) 
+{
+  uns64 amount_to_relcoate = 0; 
+  //cout << tuple_ptr->count << endl;
+  switch(tuple_ptr->count) {
+      case 0:
+        amount_to_relcoate = 2;
+        break;
+      case 1:
+        amount_to_relcoate = 2;
+        break;
+      case 2:
+        amount_to_relcoate = 2;
+        break;
+      case 3:
+       amount_to_relcoate = 2;
+        break;
+      case 4:
+        amount_to_relcoate = 2;
+        break;
+      case 5:
+        amount_to_relcoate = 2;
+        break;
+      case 6:
+        amount_to_relcoate = 1;
+        break;
+      case 7:
+        amount_to_relcoate = 1;
+        break;
+      default:
+        break;
+    }
+    //cout << "amount to relocate in func " << amount_to_relcoate << endl;
+    return amount_to_relcoate;
+}
+
+
+/////////////////////////////////////////////////////
+//get number of balls to relocate based on how many balls are in the bucket
+/////////////////////////////////////////////////////
+
+//detect how many balls to relocate based on how many balls are in the bucket, guesses for now, but work well
+uns64 get_number_to_relocate_4(bucket_tuple* tuple_ptr) 
+{
+  uns64 amount_to_relcoate = 0; 
+  switch(tuple_ptr->count) {
+      case 0:
+        amount_to_relcoate = 2;
+        break;
+      case 1:
+        amount_to_relcoate = 2;
+        break;
+      case 2:
+        amount_to_relcoate = 1;
+        break;
+      case 3:
+       amount_to_relcoate = 1;
+        break;
+      default:
+        break;
+    }
+    return amount_to_relcoate;
+}
+
 /////////////////////////////////////////////////////
 //ideal relocate function, that creates even distribution
 /////////////////////////////////////////////////////
@@ -960,16 +1027,22 @@ void relocate(bucket_tuple* tuple_ptr) {
     uns64 buck_to_move = tuple_ptr->bucket;
     bucket_tuple* tuple_last = nullptr;
 
+    //var to keep track of how many balls to relocate
+    uns64 amount_to_relcoate; 
+
     //determine which bucket to relocate to based on the number of ways
     switch(CURR_NUM_WAYS) {
       case 4:
         tuple_last = pq.get_least_filled_4ways();
+        amount_to_relcoate = get_number_to_relocate_4(tuple_ptr); 
         break;
       case 8:
         tuple_last = pq.get_least_filled_8ways();
+        amount_to_relcoate = get_number_to_relocate_8(tuple_ptr);
         break;
       case 16:
         tuple_last = pq.get_least_filled_16ways();
+        amount_to_relcoate = get_number_to_relocate_16(tuple_ptr);
         break;
       default:
         break;
@@ -980,9 +1053,6 @@ void relocate(bucket_tuple* tuple_ptr) {
       number_empty_buckets++;
       return;
     }
-
-    //var to keep track of how many balls to relocate
-    uns64 amount_to_relcoate = get_number_to_relocate(tuple_ptr); 
 
     for (uns64 i = 0; i < amount_to_relcoate; ++i) {
       //get the first ball in the bucket to remove
@@ -1035,30 +1105,47 @@ void relocate_LRU(bucket_tuple* tuple_ptr) {
     if (tuple_last->count == SPILL_THRESHOLD) {
       return;
     }
+    
+    uns64 amount_to_relcoate = 0; 
+    switch(CURR_NUM_WAYS) {
+      case 4:
+        amount_to_relcoate = get_number_to_relocate_4(tuple_ptr); 
+        break;
+      case 8:
+        amount_to_relcoate = get_number_to_relocate_8(tuple_ptr);
+        break;
+      case 16:
+        amount_to_relcoate = get_number_to_relocate_16(tuple_ptr);
+        break;
+      default:
+        break;
+    }
+ 
+    cout << "amount to relocate " << amount_to_relcoate << endl;
+    for (uns64 i = 0; i < amount_to_relcoate; ++i) {
+      //get the first ball in the bucket to remove
+      uns64 firstBall = tuple_ptr->ball_list.front();
+      //erase bucket at the front of the list 
+      tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin()); 
 
-    //get the first ball in the bucket to remove
-    uns64 firstBall = tuple_ptr->ball_list.front();
-    //erase bucket at the front of the list 
-    tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin()); 
+      //decrement the count of the bucket that is being relocated from
+      tuple_ptr->count--;
+      bucket[buck_to_move].at(0).count--;
+      //heapify down to correct ordering as count is decreased
+      pq.heapify_downwards(index_in_heap);
 
-    //decrement the count of the bucket that is being relocated from
-    tuple_ptr->count--;
-    bucket[buck_to_move].at(0).count--;
-    //heapify down to correct ordering as count is decreased
-    pq.heapify_downwards(index_in_heap);
+      // Move the ball to the new bucket
+      tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
+      tuple_last->count++;
+      bucket[tuple_last->bucket].at(0).count++;
+      //this is the reason why I must keep track of the balls 
+      balls[firstBall] = tuple_last->bucket;
 
-    // Move the ball to the new bucket
-    tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
-    tuple_last->count++;
-    tuple_last->access_count = current_timestamp++;
-    bucket[tuple_last->bucket].at(0).count++;
-    //this is the reason why I must keep track of the balls 
-    balls[firstBall] = tuple_last->bucket;
+      // Fix the heap ordering
+      pq.heapify_downwards(tuple_last->index);
 
-    // Fix the heap ordering
-    pq.heapify_downwards(tuple_last->index);
-
-    number_relocations++;
+      number_relocations++;
+  }
 }
 
 
@@ -1088,8 +1175,24 @@ void relocate_LFU(bucket_tuple* tuple_ptr) {
       return;
     }
 
-    //var to keep track of how many balls to relocate
-    uns64 amount_to_relcoate = get_number_to_relocate(tuple_ptr); 
+
+    uns64 amount_to_relcoate = 0; 
+    switch(CURR_NUM_WAYS) {
+      case 4:
+        amount_to_relcoate = get_number_to_relocate_4(tuple_ptr); 
+        break;
+      case 8:
+        amount_to_relcoate = get_number_to_relocate_8(tuple_ptr);
+        break;
+      case 16:
+        amount_to_relcoate = get_number_to_relocate_16(tuple_ptr);
+        break;
+      default:
+        break;
+    }
+
+    cout << "amount to relocate " << amount_to_relcoate << endl;
+    cout << "tuple last count " << tuple_last->count << endl;
 
     for (uns64 i = 0; i < amount_to_relcoate; ++i) {
       //get the first ball in the bucket to remove
