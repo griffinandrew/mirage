@@ -80,7 +80,6 @@ struct bucket_tuple {
   vector<uns64> ball_list;
   uns64 bucket; //bucket id
   uns64 index; //current location in the heap
-  uns64 access_count; //number of times bucket has been accessed, used for LRU
 };
 
 union bucket_value {
@@ -91,11 +90,9 @@ union bucket_value {
 //having count twice is not needed so use tuple pointer for count 
 vector<bucket_value> bucket[NUM_BUCKETS];
 
+
 //just fucntion declaration
 void relocate(bucket_tuple* tuple_ptr);
-
-void relocate_LRU(bucket_tuple* tuple_ptr);
-
 
 //For each Ball (Cache-Line), which Bucket (Set) it is in
 //(Data-Structure Similar to Data-Store RPTR)
@@ -125,8 +122,7 @@ uns64 number_relocations = 0;
 
 uns64 number_empty_buckets = 0;
 
-//this is used for LRU heuristic
-uns64 current_timestamp = 0;
+
 
 //can prob delete now
 uns64 number_no_1 = 0;
@@ -145,7 +141,8 @@ uns64 number_no_13 = 0;
 uns64 number_no_14 = 0;
 uns64 number_no_15 = 0;
 
-//this is used to determine how many balls to relocate
+
+
 uns64 CURR_NUM_WAYS = 0;
 
 
@@ -542,6 +539,7 @@ GriffinsAwesomePriorityQueue pq;
 void spill_ball(uns64 index, uns64 ballID){
   uns done=0;
 
+
   ////////////////////////////////////////////////////////
   bucket_tuple* tuple_ptr = bucket[index].at(1).tuple_ptr;
   //decrement count of bucket that is full
@@ -559,9 +557,6 @@ void spill_ball(uns64 index, uns64 ballID){
       break;
     }
   }
-
-  cout << "spill ball " << tuple_ptr->count << endl;
-  cout << "spill count " << bucket[index].at(0).count << endl;
   //////////////////////////////////////////////////////
 
 
@@ -596,9 +591,6 @@ void spill_ball(uns64 index, uns64 ballID){
       ////////////////////////////////////////////////////////////////
      
     } else {
-      cout << "spill index " << spill_index << endl;
-      cout << "count " << bucket[spill_index].at(0).count << endl;
-      cout << "spill threshold " << SPILL_THRESHOLD << endl;
       assert(bucket[spill_index].at(0).count == SPILL_THRESHOLD);
       //if bucket of spill_index is also full, then recursive-spill, we call this a cuckoo-spill
       index = spill_index;
@@ -667,8 +659,6 @@ uns insert_ball(uns64 ballID){
   bucket[index].at(0).count++;
   //set the count of the tuple to the new count
   tuple_ptr->count++;
-  //update access count of bucket
-  tuple_ptr->access_count = current_timestamp++;
   //add ball id to current bucket
   tuple_ptr->ball_list.push_back(ballID); //ball should be added to the bucket balls vector 
   //heapify up to correct ordering as count is increased 
@@ -689,8 +679,7 @@ uns insert_ball(uns64 ballID){
   //why am i relocating if at average tho?? this is not needed!!!
   //if(bucket[bucket_id].at(0).count >= SPILL_THRESHOLD) 
   if(bucket[bucket_id].at(0).count  > BALLS_PER_BUCKET){ //but now night shouldnt this not be the case?? because it already spilled?? MFs
-    //relocate(tuple_ptr); //now just every time a ball is inserted it is relocated
-    relocate_LRU(tuple_ptr);
+    relocate(tuple_ptr); //now just every time a ball is inserted it is relocated
   } 
 
   ////////////////////////////////////////////////////////////////
@@ -821,8 +810,6 @@ void init_buckets(void){
     mytuple->index = 0;
     //bucket is unqiue id for each bucket
     mytuple->bucket = ii; 
-    //add access counters
-    mytuple->access_count = 0;
     //this heapfies and adds to heap
     pq.push(mytuple);
     //set the pointer to the tuple in the bucket
@@ -989,52 +976,6 @@ void relocate(bucket_tuple* tuple_ptr) {
 
       number_relocations++;
   }
-}
-
-
-void relocate_LRU(bucket_tuple* tuple_ptr) {
-    uns64 index_in_heap = tuple_ptr->index;
-    uns64 buck_to_move = tuple_ptr->bucket;
-    //bucket_tuple* tuple_last = nullptr;
-
-    bucket_tuple* tuple_last = pq.get_element(0);
-    for (uns64 i = 1; i < pq.size(); ++i) {
-      bucket_tuple* current_tuple = pq.get_element(i);
-      if (current_tuple->access_count < tuple_last->access_count) {
-        tuple_last = current_tuple;
-      }
-    }
-    cout << "tuple last " << tuple_last->count << endl;
-    
-    if (tuple_last == nullptr) {
-      return;
-    }
-    if (tuple_last->count == SPILL_THRESHOLD) {
-      return;
-    }
-
-    //get the first ball in the bucket to remove
-    uns64 firstBall = tuple_ptr->ball_list.front();
-    //erase bucket at the front of the list 
-    tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin()); 
-
-    //decrement the count of the bucket that is being relocated from
-    tuple_ptr->count--;
-    bucket[buck_to_move].at(0).count--;
-    //heapify down to correct ordering as count is decreased
-    pq.heapify_downwards(index_in_heap);
-
-    // Move the ball to the new bucket
-    tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
-    tuple_last->count++;
-    tuple_last->access_count = current_timestamp++;
-    bucket[tuple_last->bucket].at(0).count++;
-    //this is the reason why I must keep track of the balls 
-    balls[firstBall] = tuple_last->bucket;
-
-    // Fix the heap ordering
-    pq.heapify_downwards(tuple_last->index);
-
 }
 
 
