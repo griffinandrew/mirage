@@ -700,10 +700,9 @@ uns insert_ball(uns64 ballID){
 
   //why am i relocating if at average tho?? this is not needed!!!
   //if(bucket[bucket_id].at(0).count >= SPILL_THRESHOLD) {
-  if(bucket[bucket_id].at(0).count  > BALLS_PER_BUCKET ){ //but now night shouldnt this not be the case?? because it already spilled?? MFs
+  if(bucket[bucket_id].at(0).count  >= BALLS_PER_BUCKET ){ //but now night shouldnt this not be the case?? because it already spilled?? MFs
     //relocate(tuple_ptr); //now just every time a ball is inserted it is relocated
     //relocate_LRU(tuple_ptr);
-    //cout << "in relocate LFU" << endl;
     relocate_LFU(tuple_ptr);
   } 
 
@@ -932,34 +931,22 @@ uns64 get_number_to_relocate_8(bucket_tuple* tuple_ptr)
 {
   uns64 amount_to_relcoate; 
   switch(tuple_ptr->count) {
-      case 0:
-        amount_to_relcoate = 2;
-        break;
-      case 1:
-        amount_to_relcoate = 2;
-        break;
-      case 2:
-        amount_to_relcoate = 2;
-        break;
-      case 3:
-       amount_to_relcoate = 2;
-        break;
-      case 4:
-        amount_to_relcoate = 2;
-        break;
-      case 5:
-        amount_to_relcoate = 2;
-        break;
-      case 6:
-        amount_to_relcoate = 1;
-        break;
-      case 7:
-        amount_to_relcoate = 1;
-        break;
-      default:
-        break;
-    }
-    //cout << "amount to relocate in func " << amount_to_relcoate << endl;
+    case 0:
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+    case 5:
+      amount_to_relcoate = 2;
+      break;
+    case 6:
+    case 7:
+      amount_to_relcoate = 1;
+      break;
+    default:
+      amount_to_relcoate = 0;
+      break;
+  }
   return amount_to_relcoate;
 }
 
@@ -974,14 +961,10 @@ uns64 get_number_to_relocate_4(bucket_tuple* tuple_ptr)
   uns64 amount_to_relcoate = 0; 
   switch(tuple_ptr->count) {
       case 0:
-        amount_to_relcoate = 2;
-        break;
       case 1:
         amount_to_relcoate = 2;
         break;
       case 2:
-        amount_to_relcoate = 1;
-        break;
       case 3:
        amount_to_relcoate = 1;
         break;
@@ -1080,22 +1063,22 @@ void relocate_LRU(bucket_tuple* tuple_ptr) {
       return;
     }
     
-    uns64 amount_to_relcoate; 
+    uns64 amount_to_relcoate = 0;
     switch(CURR_NUM_WAYS) {
       case 4:
-        amount_to_relcoate = get_number_to_relocate_4(tuple_ptr); 
+        amount_to_relcoate = get_number_to_relocate_4(tuple_last); 
         break;
       case 8:
-        amount_to_relcoate = get_number_to_relocate_8(tuple_ptr);
+        amount_to_relcoate = get_number_to_relocate_8(tuple_last);
         break;
       case 16:
-        amount_to_relcoate = get_number_to_relocate_16(tuple_ptr);
+        amount_to_relcoate = get_number_to_relocate_16(tuple_last);
         break;
       default:
         break;
     }
-    cout << "curr number ways " << CURR_NUM_WAYS << endl;
-    cout << "amount to relocate " << amount_to_relcoate << endl;
+
+
     for (uns64 i = 0; i < amount_to_relcoate; ++i) {
       //get the first ball in the bucket to remove
       uns64 firstBall = tuple_ptr->ball_list.front();
@@ -1149,48 +1132,24 @@ void relocate_LFU(bucket_tuple* tuple_ptr) {
     }
 
 
-    uns64 amount_to_relcoate;
-    /*switch(CURR_NUM_WAYS) {
+    uns64 amount_to_relcoate = 0;
+    switch(CURR_NUM_WAYS) {
       case 4:
-        amount_to_relcoate = get_number_to_relocate_4(tuple_ptr); 
+        amount_to_relcoate = get_number_to_relocate_4(tuple_last); 
         break;
       case 8:
-        amount_to_relcoate = get_number_to_relocate_8(tuple_ptr);
-        cout << "amount to relocate in switch" << amount_to_relcoate << endl;
+        amount_to_relcoate = get_number_to_relocate_8(tuple_last);
         break;
       case 16:
-        amount_to_relcoate = get_number_to_relocate_16(tuple_ptr);
-        
+        amount_to_relcoate = get_number_to_relocate_16(tuple_last);
         break;
       default:
         break;
     }
-    */
-
-    uns64 curr_count = tuple_last->count;
-    cout << "curr count " << curr_count << endl;
-    switch(curr_count) {
-      case 0:
-      case 1:
-      case 2:
-      case 3:
-      case 4:
-      case 5:
-        amount_to_relcoate = 2;
-        break;
-      case 6:
-      case 7:
-        amount_to_relcoate = 1;
-        break;
-      default:
-        amount_to_relcoate = 0;
-        break;
-    }
-
+    
 
     for (uns64 i = 0; i < amount_to_relcoate; ++i) {
-
-      cout << "in for loop" << endl;
+      
       //get the first ball in the bucket to remove
       uns64 firstBall = tuple_ptr->ball_list.front();
       //erase bucket at the front of the list 
