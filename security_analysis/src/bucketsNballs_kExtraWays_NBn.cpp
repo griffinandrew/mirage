@@ -705,8 +705,8 @@ uns insert_ball(uns64 ballID){
   //if(bucket[bucket_id].at(0).count >= SPILL_THRESHOLD) {
   if(bucket[bucket_id].at(0).count  >= BALLS_PER_BUCKET){ //but now night shouldnt this not be the case?? because it already spilled?? MFs
   //if(bucket[bucket_id].at(0).count  >= 3){
-    //relocate(tuple_ptr); //now just every time a ball is inserted it is relocated
-    relocate_LRU(tuple_ptr);
+    relocate(tuple_ptr); //now just every time a ball is inserted it is relocated
+    //relocate_LRU(tuple_ptr);
     //relocate_LFU(tuple_ptr);
   }
   //relocate_LFU(tuple_ptr);
