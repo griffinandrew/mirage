@@ -153,6 +153,9 @@ uns64 number_no_15 = 0;
 uns64 CURR_NUM_WAYS = 0;
 
 
+uns64 last_row_count_found = 0;
+
+
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
 //priority queue that is used to determine which 
