@@ -896,53 +896,27 @@ uns  remove_and_insert(void){
 //detect how many balls to relocate based on how many balls are in the bucket, guesses for now, but work well
 uns64 get_number_to_relocate_16(bucket_tuple* tuple_ptr) 
 {
-  uns64 amount_to_relcoate = 0; 
+  uns64 amount_to_relcoate = 0;
   switch(tuple_ptr->count) {
       case 0:
-        amount_to_relcoate = 3;
-        break;
       case 1:
-        amount_to_relcoate = 3;
-        break;
       case 2:
-        amount_to_relcoate = 3;
-        break;
       case 3:
-       amount_to_relcoate = 3;
-        break;
       case 4:
-        amount_to_relcoate = 3;
-        break;
       case 5:
-        amount_to_relcoate = 3;
-        break;
       case 6:
-        amount_to_relcoate = 3;
-        break;
       case 7:
-        amount_to_relcoate = 3;
-        break;
       case 8:
         amount_to_relcoate = 3;
         break;
       case 9:
-        amount_to_relcoate = 2;
-        break;
       case 10:
-        amount_to_relcoate = 2;
-        break;
       case 11:
         amount_to_relcoate = 2;
         break;
       case 12:  
-        amount_to_relcoate = 1;
-        break;
       case 13:
-        amount_to_relcoate = 1;
-        break;
       case 14:
-        amount_to_relcoate = 1;
-        break;
       case 15:
         amount_to_relcoate = 1;
         break;
@@ -956,8 +930,7 @@ uns64 get_number_to_relocate_16(bucket_tuple* tuple_ptr)
 
 uns64 get_number_to_relocate_8(bucket_tuple* tuple_ptr) 
 {
-  uns64 amount_to_relcoate = 0; 
-  //cout << tuple_ptr->count << endl;
+  uns64 amount_to_relcoate; 
   switch(tuple_ptr->count) {
       case 0:
         amount_to_relcoate = 2;
@@ -987,13 +960,13 @@ uns64 get_number_to_relocate_8(bucket_tuple* tuple_ptr)
         break;
     }
     //cout << "amount to relocate in func " << amount_to_relcoate << endl;
-    return amount_to_relcoate;
+  return amount_to_relcoate;
 }
 
 
-/////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
 //get number of balls to relocate based on how many balls are in the bucket
-/////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
 
 //detect how many balls to relocate based on how many balls are in the bucket, guesses for now, but work well
 uns64 get_number_to_relocate_4(bucket_tuple* tuple_ptr) 
@@ -1015,12 +988,12 @@ uns64 get_number_to_relocate_4(bucket_tuple* tuple_ptr)
       default:
         break;
     }
-    return amount_to_relcoate;
+  return amount_to_relcoate;
 }
 
-/////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
 //ideal relocate function, that creates even distribution
-/////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
 
 void relocate(bucket_tuple* tuple_ptr) {
     uns64 index_in_heap = tuple_ptr->index;
@@ -1053,6 +1026,7 @@ void relocate(bucket_tuple* tuple_ptr) {
       number_empty_buckets++;
       return;
     }
+
 
     for (uns64 i = 0; i < amount_to_relcoate; ++i) {
       //get the first ball in the bucket to remove
@@ -1106,7 +1080,7 @@ void relocate_LRU(bucket_tuple* tuple_ptr) {
       return;
     }
     
-    uns64 amount_to_relcoate = 0; 
+    uns64 amount_to_relcoate; 
     switch(CURR_NUM_WAYS) {
       case 4:
         amount_to_relcoate = get_number_to_relocate_4(tuple_ptr); 
@@ -1120,7 +1094,7 @@ void relocate_LRU(bucket_tuple* tuple_ptr) {
       default:
         break;
     }
- 
+    cout << "curr number ways " << CURR_NUM_WAYS << endl;
     cout << "amount to relocate " << amount_to_relcoate << endl;
     for (uns64 i = 0; i < amount_to_relcoate; ++i) {
       //get the first ball in the bucket to remove
@@ -1165,36 +1139,58 @@ void relocate_LFU(bucket_tuple* tuple_ptr) {
         tuple_last = current_tuple;
       }
     }
-    //cout << "tuple last count " << tuple_last->frequency << endl;
     
     if (tuple_last == nullptr) {
       return;
     }
 
-    if (tuple_last->count == SPILL_THRESHOLD) {
+    if (tuple_last->count >= SPILL_THRESHOLD) {
       return;
     }
 
 
-    uns64 amount_to_relcoate = 0; 
-    switch(CURR_NUM_WAYS) {
+    uns64 amount_to_relcoate;
+    /*switch(CURR_NUM_WAYS) {
       case 4:
         amount_to_relcoate = get_number_to_relocate_4(tuple_ptr); 
         break;
       case 8:
         amount_to_relcoate = get_number_to_relocate_8(tuple_ptr);
+        cout << "amount to relocate in switch" << amount_to_relcoate << endl;
         break;
       case 16:
         amount_to_relcoate = get_number_to_relocate_16(tuple_ptr);
+        
         break;
       default:
         break;
     }
+    */
 
-    cout << "amount to relocate " << amount_to_relcoate << endl;
-    cout << "tuple last count " << tuple_last->count << endl;
+    uns64 curr_count = tuple_last->count;
+    cout << "curr count " << curr_count << endl;
+    switch(curr_count) {
+      case 0:
+      case 1:
+      case 2:
+      case 3:
+      case 4:
+      case 5:
+        amount_to_relcoate = 2;
+        break;
+      case 6:
+      case 7:
+        amount_to_relcoate = 1;
+        break;
+      default:
+        amount_to_relcoate = 0;
+        break;
+    }
+
 
     for (uns64 i = 0; i < amount_to_relcoate; ++i) {
+
+      cout << "in for loop" << endl;
       //get the first ball in the bucket to remove
       uns64 firstBall = tuple_ptr->ball_list.front();
       //erase bucket at the front of the list 
@@ -1210,6 +1206,7 @@ void relocate_LFU(bucket_tuple* tuple_ptr) {
       tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
       tuple_last->count++;
       bucket[tuple_last->bucket].at(0).count++;
+      tuple_last->frequency++;
       //this is the reason why I must keep track of the balls 
       balls[firstBall] = tuple_last->bucket;
 
@@ -1245,7 +1242,7 @@ int main(int argc, char* argv[]){
   myseed = atoi(argv[3]);
 
   CURR_NUM_WAYS = atoi(argv[4]);
-  cout << "curr num ways " << CURR_NUM_WAYS << endl;
+  cout << "CURR_NUM_WAYS " << CURR_NUM_WAYS << endl;
 
 
   printf("Cache Configuration: %d MB, %d skews, %d ways (%d ways/skew)\n",CACHE_SZ_BYTES/1024/1024,NUM_SKEWS,NUM_SKEWS*BASE_WAYS_PER_SKEW,BASE_WAYS_PER_SKEW);
