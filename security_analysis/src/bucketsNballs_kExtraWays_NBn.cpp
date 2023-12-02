@@ -995,19 +995,21 @@ void relocate(bucket_tuple* tuple_ptr) {
     switch(CURR_NUM_WAYS) {
       case 4:
         tuple_last = pq.get_least_filled_4ways();
-        amount_to_relcoate = get_number_to_relocate_4(tuple_ptr); 
+        amount_to_relcoate = get_number_to_relocate_4(tuple_last); 
         break;
       case 8:
         tuple_last = pq.get_least_filled_8ways();
-        amount_to_relcoate = get_number_to_relocate_8(tuple_ptr);
+        amount_to_relcoate = get_number_to_relocate_8(tuple_last);
         break;
       case 16:
         tuple_last = pq.get_least_filled_16ways();
-        amount_to_relcoate = get_number_to_relocate_16(tuple_ptr);
+        amount_to_relcoate = get_number_to_relocate_16(tuple_last);
         break;
       default:
         break;
     }
+    //cout << "amount to relocate: " << amount_to_relcoate << endl;
+    //cout << "number of balls in bucket: " << tuple_ptr->count << endl;
 
     //if there is no bucket to relocate to, then just return  
     if (tuple_last == nullptr) {
