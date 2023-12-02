@@ -995,14 +995,23 @@ void relocate(bucket_tuple* tuple_ptr) {
     switch(CURR_NUM_WAYS) {
       case 4:
         tuple_last = pq.get_least_filled_4ways();
+        if(tuple_last == nullptr) {
+          return;
+        }
         amount_to_relcoate = get_number_to_relocate_4(tuple_last); 
         break;
       case 8:
         tuple_last = pq.get_least_filled_8ways();
+        if(tuple_last == nullptr) {
+          return;
+        }
         amount_to_relcoate = get_number_to_relocate_8(tuple_last);
         break;
       case 16:
         tuple_last = pq.get_least_filled_16ways();
+        if(tuple_last == nullptr) {
+          return;
+        }
         amount_to_relcoate = get_number_to_relocate_16(tuple_last);
         break;
       default:
