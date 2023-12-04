@@ -83,6 +83,7 @@ struct bucket_tuple {
   uns64 access_count; //number of times bucket has been accessed, used for LRU
   uns64 frequency; //number of times bucket has been accessed, used for LFU
   uns64 index_min; //current location in the min heap 
+  uns64 insertion_order;
 };
 
 union bucket_value {
@@ -166,6 +167,8 @@ uns64 CURR_NUM_WAYS = 0;
 
 uns64 last_row_count_found = 0;
 
+
+uns64 insertion_counter = 0;
 
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
@@ -580,6 +583,7 @@ public:
     uns64 left_index = 2 * index + 1;
     uns64 right_index = 2 * index + 2;
 
+    
     if (left_index < size && storage_min_[left_index]->count < storage_min_[max]->count) {
       max = left_index;
     }
@@ -587,6 +591,7 @@ public:
     if (right_index < size && storage_min_[right_index]->count < storage_min_[max]->count) {
       max = right_index;
     }
+    
 
     if (max != index) {
       swap_elements(index, max);
@@ -595,6 +600,9 @@ public:
   }
 
   bucket_tuple *top() const {
+    if(storage_min_.size() == 0){
+      return nullptr;
+    }
     return storage_min_[0];
   }
 
@@ -603,7 +611,7 @@ public:
     if (size == 0) {
       return;
     }
-    //swap_elements(0, size - 1);
+    swap_elements(0, size - 1);
     storage_min_.pop_back();
     heapify_downwards(0);
   }
@@ -624,10 +632,33 @@ public:
     return val;
   }
 
+  void delete_and_repush(bucket_tuple* element) {
+    uns64 index = element->index_min;
+    swap_elements(index, storage_min_.size() - 1);
+    storage_min_.pop_back();
+    heapify_downwards(index);
+    heapify_upwards(index);
+    push(element);
+  }
+
+
+
+  
+  void heapify_all(){
+    for (int i = 0; i < storage_min_.size(); ++i) {
+      heapify_upwards(i);
+    }
+  }
+  void clear(){
+    storage_min_.clear();
+  }
+
 private:
   void swap_elements(uns64 a, uns64 b) {
+    if (a < storage_min_.size() && b < storage_min_.size()) {
     std::swap(storage_min_[a], storage_min_[b]); //does this counts? no counts are the same
     std::swap(storage_min_[a]->index_min, storage_min_[b]->index_min); //do i also need to swap counts? or no i dont think
+    }
   }
 
 private:
@@ -635,6 +666,16 @@ private:
 };
 
 GriffinsAwesomeMinQueue pq_min;
+
+GriffinsAwesomeMinQueue min_exp;
+
+  void print(){
+    for (uns64 i = 0; i < pq_min.size(); ++i) {
+        bucket_tuple* element = pq_min.get_element(i);
+        std::cout << "Index: " << i << ", Count: " << element->count << ", Bucket: " << element->bucket << "\n";
+    }
+  }
+
 
 /////////////////////////////////////////////////////
 // Spill Ball: relocating filled bucket
@@ -657,7 +698,8 @@ void spill_ball(uns64 index, uns64 ballID){
   //heapify down to correct ordering as count is decreased
   //pq.heapify_downwards(index);
   pq.heapify_downwards(tuple_ptr->index);
-  pq_min.heapify_downwards(tuple_ptr->index_min);
+  //pq_min.heapify_downwards(tuple_ptr->index_min);
+  pq_min.delete_and_repush(tuple_ptr);
   //pq_min.heapify_downwards(0);
   
   //remove inserted ball from bucket balls vector
@@ -705,7 +747,9 @@ void spill_ball(uns64 index, uns64 ballID){
       tuple_spill->ball_list.push_back(ballID);
       //heapify up to correct ordering as count is increased
       pq.heapify_upwards(tuple_spill->index);
-      pq_min.heapify_upwards(tuple_spill->index_min);
+      //pq_min.heapify_upwards(tuple_spill->index_min);
+
+      pq_min.delete_and_repush(tuple_spill);
       //pq_min.heapify_downwards(0);
       
       
@@ -733,6 +777,12 @@ void spill_ball(uns64 index, uns64 ballID){
 
 uns insert_ball(uns64 ballID){
 
+  if(pq_min.top()->count == 0) {
+    //cout << "pq_min.top()->count: " << pq_min.top()->count << endl;
+    //cout << "elemet 1 " << pq_min.get_element(1)->count << endl;
+    //cout << "elemet 2 " << pq_min.get_element(2)->count << endl;
+
+  }
   //Index for Rand Bucket in Skew-0
   uns64 index1 = mtrand->randInt(NUM_BUCKETS_PER_SKEW - 1);
   //Index for Rand Bucket in Skew-1
@@ -793,12 +843,18 @@ uns insert_ball(uns64 ballID){
   tuple_ptr->ball_list.push_back(ballID); //ball should be added to the bucket balls vector 
   //heapify up to correct ordering as count is increased 
   pq.heapify_upwards(tuple_ptr->index);
-  pq_min.heapify_upwards(tuple_ptr->index_min);
+  //pq_min.heapify_upwards(tuple_ptr->index_min);
+
+  pq_min.delete_and_repush(tuple_ptr);
   //pq_min.heapify_downwards(0);
   
   //get bucket id to send to relocate if needed
   //on second thought is this not just index??
   uns64 bucket_id = tuple_ptr->bucket;
+
+  //cout << "pq_min.top()->count: " << pq_min.top()->count << endl;
+  //cout << "elemet 1 " << pq_min.get_element(1)->count << endl;
+  //cout << "elemet 2 " << pq_min.get_element(2)->count << endl;
 
   //above are changes
   ////////////////////////////////////////////////////////////////
@@ -868,7 +924,8 @@ uns64 remove_ball(void){
   tuple_ptr->ball_list.end());
   
   pq.heapify_downwards(tuple_ptr->index);
-  pq_min.heapify_downwards(tuple_ptr->index_min);
+  //pq_min.heapify_downwards(tuple_ptr->index_min);
+  pq_min.delete_and_repush(tuple_ptr);
   //pq_min.heapify_downwards(0);
   
   //above are changes
@@ -963,6 +1020,7 @@ void init_buckets(void){
     //add index for min
     mytuple->index_min = 0;
     //this heapfies and adds to heap
+    mytuple->insertion_order = insertion_counter++;
     pq.push(mytuple);
     //add to min heap
     pq_min.push(mytuple);
@@ -1059,17 +1117,15 @@ uns64 get_number_to_relocate_8(bucket_tuple* tuple_ptr)
     case 1:
     case 2:
     case 3:
+      amount_to_relcoate = 2;
+      break;
     case 4:
     case 5:
-      amount_to_relcoate = 2;
-      break;
     case 6:
     case 7:
-      amount_to_relcoate = 2;
-      break;
-    case 8:
       amount_to_relcoate = 1;
       break;
+    case 8:
     default:
       amount_to_relcoate = 0;
       break;
@@ -1394,15 +1450,16 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
     //cout << "tuple count" << tuple_ptr->count << endl;
 
     //var to keep track of how many balls to relocate
-    uns64 amount_to_relcoate; 
+    uns64 amount_to_relcoate = 1; 
 
     if (tuple_ptr->count == BALLS_PER_BUCKET) {
       return;
     }
 
 
-    /*
+    
     //determine which bucket to relocate to based on the number of ways
+    /*
     switch(CURR_NUM_WAYS) {
       case 4:
         //tuple_last = pq_min.top();
@@ -1412,7 +1469,7 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
         amount_to_relcoate = get_number_to_relocate_4(tuple_last); 
         break;
       case 8:
-        //tuple_last = pq_min.top();
+        tuple_last = pq_min.top();
         //if(tuple_last == nullptr) {
         //  return;
         //}
@@ -1430,20 +1487,86 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
         break;
     }
     */
-    
-    amount_to_relcoate = 1;
 
-    if(tuple_ptr->count == SPILL_THRESHOLD -1 ) {
-      return;
+    /*
+    bucket_tuple* check2 = bucket[0].at(1).tuple_ptr;
+    for (uns64 i = 1; i < NUM_BUCKETS; ++i) {
+      bucket_tuple* current_tuple = bucket[i].at(1).tuple_ptr;
+      if (current_tuple->count < check2->count) {
+        check2 = current_tuple;
+      }
     }
+    */
+
+    
+    //amount_to_relcoate = 1;
+
+
+    if(tuple_ptr->count == SPILL_THRESHOLD - 1 || tuple_ptr->count == SPILL_THRESHOLD - 2) {
+      return;
+    } 
+
+    tuple_last = pq_min.top();
+
+    bucket_tuple* tuple_check = pq_min.get_element(0);
+    for (uns64 i = 1; i < pq_min.size(); ++i) {
+      bucket_tuple* current_tuple = pq_min.get_element(i);
+      if (current_tuple->count < tuple_check->count) {
+        tuple_check = current_tuple;
+      }
+    }
+
+    //print();
+
+    //cout << "tuple check count" << tuple_check ->count << endl;
+    //cout << "tuple check index" << tuple_check->index_min << endl;
+    //cout << "tuple last count" << tuple_last->count << endl;
+    //cout << "tuple last index" << tuple_last->index_min << endl;
+
+
+
+    assert(tuple_check->count == tuple_last->count);
+
+
+    //cout << "tuple count" << tuple_last->count << endl;
+    //cout << "check2 count" << check2->count << endl;
+    //assert(check2->count == tuple_last->count);
+
+    //bucket_tuple* check = pq.get_least_filled_8ways();
+
+    //cout << "check count" << check->count << endl;
+    //cout << "tuple count" << tuple_last->count << endl;
+    //cout << "check2 count" << check2->count << endl;
+    //assert(check->count == tuple_last->count);
+
+
+
+    
+    if(tuple_last->count == 2) {
+      amount_to_relcoate = 2;
+    }
+    if(tuple_last->count == 1) {
+      amount_to_relcoate = 2;
+    }
+    if(tuple_last->count == 0) {
+      amount_to_relcoate = 2;
+    }
+    
+    //if(tuple_last->count == 0) {
+    //  amount_to_relcoate = 2;
+    //}
+    
 
 
     for (uns64 i = 0; i < amount_to_relcoate; ++i) {
-      tuple_last = pq_min.top();
+      //tuple_last = pq_min.top();
+      //cout << "tuple last bucket: " << tuple_last->bucket << endl;
+      //cout << "tuple last count: " << tuple_last->count << endl;
       
       if(tuple_last == nullptr) {
         return;
       }
+      
 
       //cout << "in relocate min heap" << endl;
       //cout << "tuple last bucket: " << tuple_last->bucket << endl;  
@@ -1463,7 +1586,8 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
       //heapify down to correct ordering as count is decreased
       
       pq.heapify_downwards(index_in_heap);
-      pq_min.heapify_downwards(tuple_ptr->index_min);
+      //pq_min.heapify_downwards(tuple_ptr->index_min);
+      pq_min.delete_and_repush(tuple_ptr);
       //pq_min.heapify_downwards(0);
 
       // Move the ball to the new bucket
@@ -1475,7 +1599,8 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
 
       // Fix the heap ordering
       pq.heapify_downwards(tuple_last->index);
-      pq_min.heapify_downwards(tuple_last->index_min);
+      //pq_min.heapify_downwards(tuple_last->index_min);
+      pq_min.delete_and_repush(tuple_last);
       //pq_min.heapify_downwards(0);
 
       number_relocations++;
