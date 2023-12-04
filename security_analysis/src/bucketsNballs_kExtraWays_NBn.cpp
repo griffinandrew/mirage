@@ -79,9 +79,10 @@ struct bucket_tuple {
   uns count; //amount of balls in bucket
   vector<uns64> ball_list;
   uns64 bucket; //bucket id
-  uns64 index; //current location in the heap
+  uns64 index; //current location in the max heap
   uns64 access_count; //number of times bucket has been accessed, used for LRU
   uns64 frequency; //number of times bucket has been accessed, used for LFU
+  uns64 index_min; //current location in the min heap 
 };
 
 union bucket_value {
@@ -98,6 +99,8 @@ void relocate(bucket_tuple* tuple_ptr);
 void relocate_LRU(bucket_tuple* tuple_ptr);
 
 void relocate_LFU(bucket_tuple* tuple_ptr);
+
+void relocate_min_heap(bucket_tuple* tuple_ptr);
 
 
 //experimental functions to compare perf without heap
@@ -545,6 +548,94 @@ GriffinsAwesomePriorityQueue pq;
 // FUNCTIONS - Ball Insertion, Removal, Spill, etc.
 /////////////////////////////////////////////////////
 
+
+
+/////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
+//priority queue that is used to determine which 
+//bucket to relocate and which bucket to insert into
+/////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
+
+class GriffinsAwesomeMinQueue {
+public:
+  // Called when count is incremented.
+  void heapify_upwards(uns64 index) {
+    if (index == 0) {
+      return;
+    }
+
+    uns64 parent_index = (index - 1) / 2;
+    if (storage_min_[index]->count < storage_min_[parent_index]->count) {
+      swap_elements(index, parent_index);
+      heapify_upwards(parent_index);
+    }
+  }
+
+  // Called when count is decremented.
+  void heapify_downwards(uns64 index) {
+    uns64 size = storage_min_.size();
+    
+    uns64 max = index;
+    uns64 left_index = 2 * index + 1;
+    uns64 right_index = 2 * index + 2;
+
+    if (left_index < size && storage_min_[left_index]->count < storage_min_[max]->count) {
+      max = left_index;
+    }
+
+    if (right_index < size && storage_min_[right_index]->count < storage_min_[max]->count) {
+      max = right_index;
+    }
+
+    if (max != index) {
+      swap_elements(index, max);
+      heapify_downwards(max);
+    }
+  }
+
+  bucket_tuple *top() const {
+    return storage_min_[0];
+  }
+
+  void pop() {
+    uns64 size = storage_min_.size();
+    if (size == 0) {
+      return;
+    }
+    swap_elements(0, size - 1);
+    storage_min_.pop_back();
+    heapify_downwards(0);
+  }
+
+  void push(bucket_tuple* element) {
+    storage_min_.push_back(element);
+    element->index_min = storage_min_.size() - 1;
+    heapify_upwards(element->index_min);
+  }
+
+  uns64 size(void){
+    uns64 size = storage_min_.size();
+    return size;
+  }
+
+  bucket_tuple* get_element(uns64 index) {
+    bucket_tuple* val = storage_min_[index];
+    return val;
+  }
+
+private:
+  void swap_elements(uns64 a, uns64 b) {
+    std::swap(storage_min_[a], storage_min_[b]); //does this counts? no counts are the same
+    std::swap(storage_min_[a]->index_min, storage_min_[b]->index_min); //do i also need to swap counts? or no i dont think
+  }
+
+private:
+  vector<bucket_tuple*> storage_min_;
+};
+
+GriffinsAwesomeMinQueue pq_min;
+
 /////////////////////////////////////////////////////
 // Spill Ball: relocating filled bucket
 // -- Based on which skew spill happened;
@@ -564,7 +655,10 @@ void spill_ball(uns64 index, uns64 ballID){
   //reflect the pointer count to match the new count, this can just be a decremet, would probs be faster
   tuple_ptr->count--;
   //heapify down to correct ordering as count is decreased
-  pq.heapify_downwards(index);
+  //pq.heapify_downwards(index);
+  pq.heapify_downwards(tuple_ptr->index);
+  //pq_min.heapify_downwards(tuple_ptr->index_min);
+  pq_min.heapify_downwards(0);
   
   //remove inserted ball from bucket balls vector
   for (uns64 k =0; k < tuple_ptr->ball_list.size(); ++k){
@@ -611,6 +705,8 @@ void spill_ball(uns64 index, uns64 ballID){
       tuple_spill->ball_list.push_back(ballID);
       //heapify up to correct ordering as count is increased
       pq.heapify_upwards(tuple_spill->index);
+      //pq_min.heapify_upwards(tuple_spill->index_min);
+      pq_min.heapify_downwards(0);
       
       
       //above are changes
@@ -694,6 +790,8 @@ uns insert_ball(uns64 ballID){
   tuple_ptr->ball_list.push_back(ballID); //ball should be added to the bucket balls vector 
   //heapify up to correct ordering as count is increased 
   pq.heapify_upwards(tuple_ptr->index);
+  //pq_min.heapify_upwards(tuple_ptr->index_min);
+  pq_min.heapify_downwards(0);
   
   //get bucket id to send to relocate if needed
   //on second thought is this not just index??
@@ -711,13 +809,14 @@ uns insert_ball(uns64 ballID){
 
   //why am i relocating if at average tho?? this is not needed!!!.... LRU /LFU performs better with this 
   //if(bucket[bucket_id].at(0).count  >= BALLS_PER_BUCKET){ //but now night shouldnt this not be the case?? because it already spilled?? MFs
-  if(bucket[bucket_id].at(0).count  > BALLS_PER_BUCKET){
-    relocate(tuple_ptr); //now just every time a ball is inserted it is relocated
+  if(bucket[bucket_id].at(0).count > BALLS_PER_BUCKET){
+    //relocate(tuple_ptr); //now just every time a ball is inserted it is relocated
     //relocate_low_overhead(tuple_ptr);
     //relocate_LRU_no_heap(tuple_ptr);
     //relocate_LFU_no_heap(tuple_ptr);
     //relocate_LRU(tuple_ptr);
     //relocate_LFU(tuple_ptr);
+    relocate_min_heap(tuple_ptr);
   }
   //relocate_LFU(tuple_ptr);
 
@@ -765,6 +864,8 @@ uns64 remove_ball(void){
   tuple_ptr->ball_list.end());
   
   pq.heapify_downwards(tuple_ptr->index);
+  //pq_min.heapify_downwards(tuple_ptr->index_min);
+  pq_min.heapify_downwards(0);
   
   //above are changes
   ////////////////////////////////////////////////////////////////
@@ -849,14 +950,19 @@ void init_buckets(void){
     mytuple->count = 0;
     //set the index in the push operation in the heap
     mytuple->index = 0;
+    
     //bucket is unqiue id for each bucket
     mytuple->bucket = ii; 
     //add access counters
     mytuple->access_count = 0;
     //add frequency counters
     mytuple->frequency = 0;
+    //add index for min
+    mytuple->index_min = 0;
     //this heapfies and adds to heap
     pq.push(mytuple);
+    //add to min heap
+    pq_min.push(mytuple);
     //set the pointer to the tuple in the bucket
     bucket[ii].at(1).tuple_ptr = mytuple;
 
@@ -977,10 +1083,14 @@ uns64 get_number_to_relocate_4(bucket_tuple* tuple_ptr)
   switch(tuple_ptr->count) {
       case 0:
       case 1:
-        amount_to_relcoate = 2;
+        amount_to_relcoate = 3;
         break;
       case 2:
+       amount_to_relcoate = 2;
+        break;
+
       case 3:
+      case 4:
        amount_to_relcoate = 1;
         break;
       default:
@@ -1242,6 +1352,8 @@ void relocate(bucket_tuple* tuple_ptr) {
       //heapify down to correct ordering as count is decreased
       
       pq.heapify_downwards(index_in_heap);
+      //pq_min.heapify_downwards(tuple_ptr->index_min);
+      pq_min.heapify_downwards(0);
 
       // Move the ball to the new bucket
       tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
@@ -1252,6 +1364,89 @@ void relocate(bucket_tuple* tuple_ptr) {
 
       // Fix the heap ordering
       pq.heapify_downwards(tuple_last->index);
+      //pq_min.heapify_downwards(tuple_last->index_min);
+      pq_min.heapify_downwards(0);
+
+      number_relocations++;
+  }
+  
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////
+//ideal relocate function, that creates even distribution with min heap
+////////////////////////////////////////////////////////////
+
+
+void relocate_min_heap(bucket_tuple* tuple_ptr) {
+    uns64 index_in_heap = tuple_ptr->index;
+    uns64 buck_to_move = tuple_ptr->bucket;
+    bucket_tuple* tuple_last = nullptr;
+
+    //var to keep track of how many balls to relocate
+    uns64 amount_to_relcoate; 
+
+    //determine which bucket to relocate to based on the number of ways
+    switch(CURR_NUM_WAYS) {
+      case 4:
+        tuple_last = pq_min.top();
+        if(tuple_last == nullptr) {
+          return;
+        }
+        amount_to_relcoate = get_number_to_relocate_4(tuple_last); 
+        break;
+      case 8:
+        tuple_last = pq_min.top();
+        if(tuple_last == nullptr) {
+          return;
+        }
+        amount_to_relcoate = get_number_to_relocate_8(tuple_last);
+        break;
+      case 16:
+        tuple_last = pq_min.top();
+        if(tuple_last == nullptr) {
+          return;
+        }
+        amount_to_relcoate = get_number_to_relocate_16(tuple_last);
+        break;
+      default:
+        break;
+    }
+    //cout << "amount to relocate: " << amount_to_relcoate << endl;
+    cout << "number of balls in last: " << tuple_last->count << endl;
+    //cout << "number of balls in bucket: " << tuple_ptr->count << endl;
+
+
+
+    for (uns64 i = 0; i < amount_to_relcoate; ++i) {
+      //get the first ball in the bucket to remove
+      uns64 firstBall = tuple_ptr->ball_list.front();
+      //erase bucket at the front of the list 
+      tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin()); 
+
+      //decrement the count of the bucket that is being relocated from
+      tuple_ptr->count--;
+      bucket[buck_to_move].at(0).count--;
+      //heapify down to correct ordering as count is decreased
+      
+      pq.heapify_downwards(index_in_heap);
+      //pq_min.heapify_downwards(tuple_ptr->index_min);
+      pq_min.heapify_downwards(0);
+
+      // Move the ball to the new bucket
+      tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
+      tuple_last->count++;
+      bucket[tuple_last->bucket].at(0).count++;
+      //this is the reason why I must keep track of the balls 
+      balls[firstBall] = tuple_last->bucket;
+
+      // Fix the heap ordering
+      pq.heapify_downwards(tuple_last->index);
+      //pq_min.heapify_downwards(tuple_last->index_min);
+      pq_min.heapify_downwards(0);
 
       number_relocations++;
   }
@@ -1311,6 +1506,9 @@ void relocate_LRU(bucket_tuple* tuple_ptr) {
       bucket[buck_to_move].at(0).count--;
       //heapify down to correct ordering as count is decreased
       pq.heapify_downwards(index_in_heap);
+      
+      //pq_min.heapify_downwards(tuple_ptr->index_min);
+      pq_min.heapify_downwards(0);
 
       // Move the ball to the new bucket
       tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
@@ -1321,6 +1519,8 @@ void relocate_LRU(bucket_tuple* tuple_ptr) {
 
       // Fix the heap ordering
       pq.heapify_downwards(tuple_last->index);
+      //pq_min.heapify_downwards(tuple_last->index_min);
+      pq_min.heapify_downwards(0);
 
       number_relocations++;
   }
@@ -1380,6 +1580,8 @@ void relocate_LRU_no_heap(bucket_tuple* tuple_ptr) {
       bucket[buck_to_move].at(0).count--;
       //heapify down to correct ordering as count is decreased
       pq.heapify_downwards(index_in_heap);
+      //pq_min.heapify_downwards(tuple_ptr->index_min);
+      pq_min.heapify_downwards(0);
 
       // Move the ball to the new bucket
       tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
@@ -1390,6 +1592,8 @@ void relocate_LRU_no_heap(bucket_tuple* tuple_ptr) {
 
       // Fix the heap ordering
       pq.heapify_downwards(tuple_last->index);
+      //pq_min.heapify_downwards(tuple_last->index_min);
+      pq_min.heapify_downwards(0);
 
       number_relocations++;
   }
@@ -1449,6 +1653,8 @@ void relocate_low_overhead(bucket_tuple* tuple_ptr) {
       bucket[buck_to_move].at(0).count--;
       //heapify down to correct ordering as count is decreased
       pq.heapify_downwards(index_in_heap);
+      //pq_min.heapify_downwards(tuple_ptr->index_min);
+      pq_min.heapify_downwards(0);
 
       // Move the ball to the new bucket
       tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
@@ -1459,6 +1665,8 @@ void relocate_low_overhead(bucket_tuple* tuple_ptr) {
 
       // Fix the heap ordering
       pq.heapify_downwards(tuple_last->index);
+      //pq_min.heapify_downwards(tuple_last->index_min);
+      pq_min.heapify_downwards(0);
 
       number_relocations++;
   }
@@ -1519,6 +1727,8 @@ void relocate_LFU(bucket_tuple* tuple_ptr) {
       bucket[buck_to_move].at(0).count--;
       //heapify down to correct ordering as count is decreased
       pq.heapify_downwards(index_in_heap);
+      //pq_min.heapify_downwards(tuple_ptr->index_min);
+      pq_min.heapify_downwards(0);
 
       // Move the ball to the new bucket
       tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
@@ -1530,6 +1740,8 @@ void relocate_LFU(bucket_tuple* tuple_ptr) {
 
       // Fix the heap ordering
       pq.heapify_downwards(tuple_last->index);
+      //pq_min.heapify_downwards(tuple_last->index_min);
+      pq_min.heapify_downwards(0);
 
       number_relocations++;
   }
@@ -1591,6 +1803,8 @@ void relocate_LFU_no_heap(bucket_tuple* tuple_ptr) {
       bucket[buck_to_move].at(0).count--;
       //heapify down to correct ordering as count is decreased
       pq.heapify_downwards(index_in_heap);
+      //pq_min.heapify_downwards(tuple_ptr->index_min);
+      pq_min.heapify_downwards(0);
 
       // Move the ball to the new bucket
       tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
@@ -1602,6 +1816,8 @@ void relocate_LFU_no_heap(bucket_tuple* tuple_ptr) {
 
       // Fix the heap ordering
       pq.heapify_downwards(tuple_last->index);
+      //pq_min.heapify_downwards(tuple_last->index_min);
+      pq_min.heapify_downwards(0);
 
       number_relocations++;
   }
