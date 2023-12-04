@@ -99,6 +99,8 @@ void relocate_LRU(bucket_tuple* tuple_ptr);
 
 void relocate_LFU(bucket_tuple* tuple_ptr);
 
+void relocate_low_overhead(bucket_tuple* tuple_ptr);
+
 
 //For each Ball (Cache-Line), which Bucket (Set) it is in
 //(Data-Structure Similar to Data-Store RPTR)
@@ -705,7 +707,8 @@ uns insert_ball(uns64 ballID){
   //if(bucket[bucket_id].at(0).count >= SPILL_THRESHOLD) {
   if(bucket[bucket_id].at(0).count  >= BALLS_PER_BUCKET){ //but now night shouldnt this not be the case?? because it already spilled?? MFs
   //if(bucket[bucket_id].at(0).count  >= 3){
-    relocate(tuple_ptr); //now just every time a ball is inserted it is relocated
+    //relocate(tuple_ptr); //now just every time a ball is inserted it is relocated
+    relocate_low_overhead(tuple_ptr);
     //relocate_LRU(tuple_ptr);
     //relocate_LFU(tuple_ptr);
   }
@@ -979,6 +982,203 @@ uns64 get_number_to_relocate_4(bucket_tuple* tuple_ptr)
   return amount_to_relcoate;
 }
 
+///////////////////////////////////////////////////////////////
+//get number of less filled bucket, for 4 ways
+///////////////////////////////////////////////////////////////
+
+bucket_tuple* get_min_bucket_4ways() {
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 0) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 1) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 2) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 3) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  return nullptr; // Return nullptr if no empty bucket is foun
+}
+
+
+///////////////////////////////////////////////////////////////
+//get number of less filled bucket, for 8 ways
+///////////////////////////////////////////////////////////////
+
+bucket_tuple* get_min_bucket_8ways() {
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 0) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 1) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 2) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 3) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+    for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 4) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 5) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 6) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 7) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  return nullptr; // Return nullptr if no empty bucket is foun
+}
+
+
+
+
+///////////////////////////////////////////////////////////////
+//get number of less filled bucket, for 16 ways
+///////////////////////////////////////////////////////////////
+
+bucket_tuple* get_min_bucket_16ways() {
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 0) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 1) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 2) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 3) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+    for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 4) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 5) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 6) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 7) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 8) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 9) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 10) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 11) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+    for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 12) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 13) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 14) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  for (int i = 0; i < NUM_BUCKETS; ++i) {
+    if (bucket[i].at(0).count == 15) {
+      number_empty_buckets++;
+      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
+    }
+  }
+  return nullptr; // Return nullptr if no empty bucket is foun
+}
+
+
 ////////////////////////////////////////////////////////////
 //ideal relocate function, that creates even distribution
 ////////////////////////////////////////////////////////////
@@ -1020,11 +1220,6 @@ void relocate(bucket_tuple* tuple_ptr) {
     //cout << "amount to relocate: " << amount_to_relcoate << endl;
     //cout << "number of balls in bucket: " << tuple_ptr->count << endl;
 
-    //if there is no bucket to relocate to, then just return  
-    if (tuple_last == nullptr) {
-      number_empty_buckets++;
-      return;
-    }
 
 
     for (uns64 i = 0; i < amount_to_relcoate; ++i) {
@@ -1121,6 +1316,75 @@ void relocate_LRU(bucket_tuple* tuple_ptr) {
   }
 }
 
+
+
+/////////////////////////////////////////////////////
+// low overhead relocate function 
+/////////////////////////////////////////////////////
+
+
+void relocate_low_overhead(bucket_tuple* tuple_ptr) {
+    uns64 index_in_heap = tuple_ptr->index;
+    uns64 buck_to_move = tuple_ptr->bucket;
+    bucket_tuple* tuple_last = nullptr;
+
+    //var to keep track of how many balls to relocate
+    uns64 amount_to_relcoate; 
+
+    //determine which bucket to relocate to based on the number of ways
+    switch(CURR_NUM_WAYS) {
+      case 4:
+        tuple_last = get_min_bucket_4ways();
+        if(tuple_last == nullptr) {
+          return;
+        }
+        amount_to_relcoate = get_number_to_relocate_4(tuple_last); 
+        break;
+      case 8:
+        tuple_last = get_min_bucket_8ways();
+        if(tuple_last == nullptr) {
+          return;
+        }
+        amount_to_relcoate = get_number_to_relocate_8(tuple_last);
+        break;
+      case 16:
+        tuple_last =get_min_bucket_16ways();
+        if(tuple_last == nullptr) {
+          return;
+        }
+        amount_to_relcoate = get_number_to_relocate_16(tuple_last);
+        break;
+      default:
+        break;
+    }
+
+
+    for (uns64 i = 0; i < amount_to_relcoate; ++i) {
+      //get the first ball in the bucket to remove
+      uns64 firstBall = tuple_ptr->ball_list.front();
+      //erase bucket at the front of the list 
+      tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin()); 
+
+      //decrement the count of the bucket that is being relocated from
+      tuple_ptr->count--;
+      bucket[buck_to_move].at(0).count--;
+      //heapify down to correct ordering as count is decreased
+      pq.heapify_downwards(index_in_heap);
+
+      // Move the ball to the new bucket
+      tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
+      tuple_last->count++;
+      bucket[tuple_last->bucket].at(0).count++;
+      //this is the reason why I must keep track of the balls 
+      balls[firstBall] = tuple_last->bucket;
+
+      // Fix the heap ordering
+      pq.heapify_downwards(tuple_last->index);
+
+      number_relocations++;
+  }
+  
+}
 
 
 /////////////////////////////////////////////////////

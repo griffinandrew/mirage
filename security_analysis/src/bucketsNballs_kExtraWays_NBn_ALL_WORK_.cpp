@@ -125,11 +125,8 @@ uns64 number_relocations = 0;
 uns64 number_empty_buckets = 0;
 
 uns64 number_no_1 = 0;
-
 uns64 number_no_2 = 0;
-
 uns64 number_no_3 = 0;
-
 uns64 number_no_4 = 0;
 uns64 number_no_5 = 0;
 uns64 number_no_6 = 0;
@@ -140,7 +137,6 @@ uns64 number_no_10 = 0;
 uns64 number_no_11 = 0;
 uns64 number_no_12 = 0;
 uns64 number_no_13 = 0;
-
 uns64 number_no_14 = 0;
 uns64 number_no_15 = 0;
 
