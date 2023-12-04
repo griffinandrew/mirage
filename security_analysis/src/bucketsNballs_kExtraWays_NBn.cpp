@@ -57,7 +57,7 @@ int SPILL_THRESHOLD = BALLS_PER_BUCKET + EXTRA_BUCKET_CAPACITY;
 //Experiment Size
 //#define BILLION_TRIES             (1000*1000*1000)
 #define BILLION_TRIES (1000*1000) //thus is 1 1 i tihnk 
-#define HUNDRED_MILLION_TRIES     (100*1000) //for 4 ways use size 10*1000
+#define HUNDRED_MILLION_TRIES     (1000*1000) //for 4 ways use size 10*1000
 
 
 /////////////////////////////////////////////////////
@@ -809,7 +809,7 @@ uns insert_ball(uns64 ballID){
 
   //why am i relocating if at average tho?? this is not needed!!!.... LRU /LFU performs better with this 
   //if(bucket[bucket_id].at(0).count  >= BALLS_PER_BUCKET){ //but now night shouldnt this not be the case?? because it already spilled?? MFs
-  if(bucket[bucket_id].at(0).count > BALLS_PER_BUCKET){
+  if(bucket[bucket_id].at(0).count > BALLS_PER_BUCKET || init_buckets_done == true){
     //relocate(tuple_ptr); //now just every time a ball is inserted it is relocated
     //relocate_low_overhead(tuple_ptr);
     //relocate_LRU_no_heap(tuple_ptr);
@@ -1058,8 +1058,8 @@ uns64 get_number_to_relocate_8(bucket_tuple* tuple_ptr)
     case 3:
     case 4:
     case 5:
-      amount_to_relcoate = 2;
-      break;
+      //amount_to_relcoate = 2;
+      //break;
     case 6:
     case 7:
       amount_to_relcoate = 1;
@@ -1388,6 +1388,13 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
     //var to keep track of how many balls to relocate
     uns64 amount_to_relcoate; 
 
+    if (tuple_ptr->count == BALLS_PER_BUCKET) {
+      return;
+    }
+
+
+
+    /*
     //determine which bucket to relocate to based on the number of ways
     switch(CURR_NUM_WAYS) {
       case 4:
@@ -1403,6 +1410,7 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
           return;
         }
         amount_to_relcoate = get_number_to_relocate_8(tuple_last);
+        //amount_to_relcoate = 1;
         break;
       case 16:
         tuple_last = pq_min.top();
@@ -1414,11 +1422,30 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
       default:
         break;
     }
+    */
+    /*
     if(tuple_last->count == 0) {
       cout << "0" << endl;
     }
+    if(tuple_last->count == 1) {
+      cout << "1" << endl;
+    }
+    if(tuple_last->count == 2) {
+      cout << "2" << endl;
+    }
+    if(tuple_last->count == 3) {
+      cout << "3" << endl;
+    }
+    if(tuple_last->count == 4) {
+      cout << "4" << endl;
+    }
+    */
+   amount_to_relcoate = 1;
 
     for (uns64 i = 0; i < amount_to_relcoate; ++i) {
+      tuple_last = pq_min.top();
+      //cout << i << endl;
+      
       //get the first ball in the bucket to remove
       uns64 firstBall = tuple_ptr->ball_list.front();
       //erase bucket at the front of the list 
