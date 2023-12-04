@@ -534,7 +534,6 @@ public:
   }
 
 
-
 private:
   void swap_elements(uns64 a, uns64 b) {
     std::swap(storage_[a], storage_[b]); //does this counts? no counts are the same
@@ -571,6 +570,7 @@ public:
     uns64 parent_index = (index - 1) / 2;
     if (storage_min_[index]->count < storage_min_[parent_index]->count) {
       swap_elements(index, parent_index);
+      cout << "Swapped elements at indices " << index << " and " << parent_index << endl;
       heapify_upwards(parent_index);
     }
   }
@@ -640,18 +640,35 @@ public:
     heapify_upwards(index);
     push(element);
   }
-
-
-
-  
-  void heapify_all(){
-    for (int i = 0; i < storage_min_.size(); ++i) {
-      heapify_upwards(i);
+  void print() {
+    for (std::size_t i = 0; i < storage_min_.size(); ++i) {
+        std::cout << "Index: " << i << ", Count: " << storage_min_[i]->count << std::endl;
+        // Print other fields...
     }
+}
+
+
+  bool is_min_heap() {
+  for (std::size_t i = 0; i < storage_min_.size(); ++i) {
+      std::size_t left_child = 2 * i + 1;
+      std::size_t right_child = 2 * i + 2;
+
+      // Check left child
+      if (left_child < storage_min_.size() && storage_min_[left_child]->count < storage_min_[i]->count) {
+          //std::cerr << "Violation at index " << i << ": Left child is smaller." << std::endl;
+          return false;
+      }
+
+      // Check right child
+      if (right_child < storage_min_.size() && storage_min_[right_child]->count < storage_min_[i]->count) {
+          //std::cerr << "Violation at index " << i << ": Right child is smaller." << std::endl;
+          return false;
+      }
   }
-  void clear(){
-    storage_min_.clear();
-  }
+  
+  std::cout << "Heap is valid." << std::endl;
+  return true;
+}
 
 private:
   void swap_elements(uns64 a, uns64 b) {
@@ -667,7 +684,6 @@ private:
 
 GriffinsAwesomeMinQueue pq_min;
 
-GriffinsAwesomeMinQueue min_exp;
 
   void print(){
     for (uns64 i = 0; i < pq_min.size(); ++i) {
@@ -698,8 +714,11 @@ void spill_ball(uns64 index, uns64 ballID){
   //heapify down to correct ordering as count is decreased
   //pq.heapify_downwards(index);
   pq.heapify_downwards(tuple_ptr->index);
-  //pq_min.heapify_downwards(tuple_ptr->index_min);
-  pq_min.delete_and_repush(tuple_ptr);
+  pq_min.heapify_downwards(tuple_ptr->index_min);
+
+  bool check = pq_min.is_min_heap();
+  assert(check == true && "corrupted min heap");
+  //pq_min.delete_and_repush(tuple_ptr);
   //pq_min.heapify_downwards(0);
   
   //remove inserted ball from bucket balls vector
@@ -747,9 +766,11 @@ void spill_ball(uns64 index, uns64 ballID){
       tuple_spill->ball_list.push_back(ballID);
       //heapify up to correct ordering as count is increased
       pq.heapify_upwards(tuple_spill->index);
-      //pq_min.heapify_upwards(tuple_spill->index_min);
+      pq_min.heapify_upwards(tuple_spill->index_min);
+      check = pq_min.is_min_heap();
+      assert(check == true && "corrupted min heap");
 
-      pq_min.delete_and_repush(tuple_spill);
+      //pq_min.delete_and_repush(tuple_spill);
       //pq_min.heapify_downwards(0);
       
       
@@ -777,12 +798,6 @@ void spill_ball(uns64 index, uns64 ballID){
 
 uns insert_ball(uns64 ballID){
 
-  if(pq_min.top()->count == 0) {
-    //cout << "pq_min.top()->count: " << pq_min.top()->count << endl;
-    //cout << "elemet 1 " << pq_min.get_element(1)->count << endl;
-    //cout << "elemet 2 " << pq_min.get_element(2)->count << endl;
-
-  }
   //Index for Rand Bucket in Skew-0
   uns64 index1 = mtrand->randInt(NUM_BUCKETS_PER_SKEW - 1);
   //Index for Rand Bucket in Skew-1
@@ -843,9 +858,9 @@ uns insert_ball(uns64 ballID){
   tuple_ptr->ball_list.push_back(ballID); //ball should be added to the bucket balls vector 
   //heapify up to correct ordering as count is increased 
   pq.heapify_upwards(tuple_ptr->index);
-  //pq_min.heapify_upwards(tuple_ptr->index_min);
+  pq_min.heapify_upwards(tuple_ptr->index_min);
 
-  pq_min.delete_and_repush(tuple_ptr);
+  //pq_min.delete_and_repush(tuple_ptr);
   //pq_min.heapify_downwards(0);
   
   //get bucket id to send to relocate if needed
@@ -875,7 +890,7 @@ uns insert_ball(uns64 ballID){
     //relocate_LFU_no_heap(tuple_ptr);
     //relocate_LRU(tuple_ptr);
     //relocate_LFU(tuple_ptr);
-    relocate_min_heap(tuple_ptr);
+    //relocate_min_heap(tuple_ptr);
   }
   //relocate_min_heap(tuple_ptr);
   //relocate_LFU(tuple_ptr);
@@ -924,8 +939,11 @@ uns64 remove_ball(void){
   tuple_ptr->ball_list.end());
   
   pq.heapify_downwards(tuple_ptr->index);
-  //pq_min.heapify_downwards(tuple_ptr->index_min);
-  pq_min.delete_and_repush(tuple_ptr);
+  pq_min.heapify_downwards(tuple_ptr->index_min);
+
+  bool check = pq_min.is_min_heap();
+  assert(check == true && "corrupted min heap");
+  //pq_min.delete_and_repush(tuple_ptr);
   //pq_min.heapify_downwards(0);
   
   //above are changes
@@ -1023,7 +1041,7 @@ void init_buckets(void){
     mytuple->insertion_order = insertion_counter++;
     pq.push(mytuple);
     //add to min heap
-    pq_min.push(mytuple);
+    //pq_min.push(mytuple);
     //set the pointer to the tuple in the bucket
     bucket[ii].at(1).tuple_ptr = mytuple;
 
@@ -1456,8 +1474,6 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
       return;
     }
 
-
-    
     //determine which bucket to relocate to based on the number of ways
     /*
     switch(CURR_NUM_WAYS) {
@@ -1523,8 +1539,6 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
     //cout << "tuple last count" << tuple_last->count << endl;
     //cout << "tuple last index" << tuple_last->index_min << endl;
 
-
-
     assert(tuple_check->count == tuple_last->count);
 
 
@@ -1583,11 +1597,14 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
       //decrement the count of the bucket that is being relocated from
       tuple_ptr->count--;
       bucket[buck_to_move].at(0).count--;
+
+      bool check = pq_min.is_min_heap();
+      assert(check == true && "corrupted min heap");
       //heapify down to correct ordering as count is decreased
       
       pq.heapify_downwards(index_in_heap);
-      //pq_min.heapify_downwards(tuple_ptr->index_min);
-      pq_min.delete_and_repush(tuple_ptr);
+      pq_min.heapify_downwards(tuple_ptr->index_min);
+      //pq_min.delete_and_repush(tuple_ptr);
       //pq_min.heapify_downwards(0);
 
       // Move the ball to the new bucket
@@ -1599,8 +1616,10 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
 
       // Fix the heap ordering
       pq.heapify_downwards(tuple_last->index);
-      //pq_min.heapify_downwards(tuple_last->index_min);
-      pq_min.delete_and_repush(tuple_last);
+      pq_min.heapify_downwards(tuple_last->index_min);
+      check = pq_min.is_min_heap();
+      assert(check == true && "corrupted min heap");
+      //pq_min.delete_and_repush(tuple_last);
       //pq_min.heapify_downwards(0);
 
       number_relocations++;
