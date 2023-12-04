@@ -714,8 +714,8 @@ void spill_ball(uns64 index, uns64 ballID){
      
     } else {
       bucket_tuple* spill = bucket[spill_index].at(1).tuple_ptr;
-      cout << "spill_buclet: " << spill->bucket << endl;
-      cout << "bucket[spill_index].at(0).count: " << bucket[spill_index].at(0).count << endl; 
+      //cout << "spill_buclet: " << spill->bucket << endl;
+      //cout << "bucket[spill_index].at(0).count: " << bucket[spill_index].at(0).count << endl; 
       assert(bucket[spill_index].at(0).count == SPILL_THRESHOLD);
       //if bucket of spill_index is also full, then recursive-spill, we call this a cuckoo-spill
       index = spill_index;
@@ -1391,6 +1391,8 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
     uns64 buck_to_move = tuple_ptr->bucket;
     bucket_tuple* tuple_last = nullptr;
 
+    //cout << "tuple count" << tuple_ptr->count << endl;
+
     //var to keep track of how many balls to relocate
     uns64 amount_to_relcoate; 
 
@@ -1431,6 +1433,11 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
     
     amount_to_relcoate = 1;
 
+    if(tuple_ptr->count == SPILL_THRESHOLD -1 ) {
+      return;
+    }
+
+
     for (uns64 i = 0; i < amount_to_relcoate; ++i) {
       tuple_last = pq_min.top();
       
@@ -1438,9 +1445,9 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
         return;
       }
 
-      cout << "in relocate min heap" << endl;
-      cout << "tuple last bucket: " << tuple_last->bucket << endl;  
-      cout << "tuple ptr bucket: " << tuple_ptr->bucket << endl;
+      //cout << "in relocate min heap" << endl;
+      //cout << "tuple last bucket: " << tuple_last->bucket << endl;  
+      //cout << "tuple ptr bucket: " << tuple_ptr->bucket << endl;
 
 
       //cout << i << endl;
