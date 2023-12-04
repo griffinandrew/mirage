@@ -570,7 +570,6 @@ public:
     uns64 parent_index = (index - 1) / 2;
     if (storage_min_[index]->count < storage_min_[parent_index]->count) {
       swap_elements(index, parent_index);
-      //cout << "Swapped elements at indices " << index << " and " << parent_index << endl;
       heapify_upwards(parent_index);
     }
   }
@@ -729,7 +728,7 @@ void spill_ball(uns64 index, uns64 ballID){
   //pq.heapify_downwards(index);
   pq.heapify_downwards(tuple_ptr->index);
   //pq_min.heapify_downwards(tuple_ptr->index_min);
-  //pq_min.heapify_upwards(tuple_ptr->index_min);
+  pq_min.heapify_upwards(tuple_ptr->index_min);
 
   //pq_min.delete_and_repush(tuple_ptr);
   //pq_min.heapify_downwards(0);
@@ -781,7 +780,7 @@ void spill_ball(uns64 index, uns64 ballID){
       pq.heapify_upwards(tuple_spill->index);
 
       //pq_min.heapify_upwards(tuple_spill->index_min);
-      //pq_min.heapify_downwards(tuple_spill->index_min);
+      pq_min.heapify_downwards(tuple_spill->index_min);
 
       //pq_min.delete_and_repush(tuple_spill);
       //pq_min.heapify_downwards(0);
@@ -872,7 +871,7 @@ uns insert_ball(uns64 ballID){
   //heapify up to correct ordering as count is increased 
   pq.heapify_upwards(tuple_ptr->index);
   //pq_min.heapify_upwards(tuple_ptr->index_min);
-  //pq_min.heapify_downwards(tuple_ptr->index_min);
+  pq_min.heapify_downwards(tuple_ptr->index_min);
 
   //pq_min.delete_and_repush(tuple_ptr);
   //pq_min.heapify_downwards(0);
@@ -956,7 +955,7 @@ uns64 remove_ball(void){
   
   pq.heapify_downwards(tuple_ptr->index);
   //pq_min.heapify_downwards(tuple_ptr->index_min);
-  //pq_min.heapify_upwards(tuple_ptr->index_min);
+  pq_min.heapify_upwards(tuple_ptr->index_min);
 
   //pq_min.delete_and_repush(tuple_ptr);
   //pq_min.heapify_downwards(0);
@@ -1139,7 +1138,6 @@ uns64 get_number_to_relocate_16(bucket_tuple* tuple_ptr)
     }
     return amount_to_relcoate;
 }
-
 
 
 uns64 get_number_to_relocate_8(bucket_tuple* tuple_ptr) 
@@ -1459,7 +1457,7 @@ void relocate(bucket_tuple* tuple_ptr) {
       // Fix the heap ordering
       pq.heapify_downwards(tuple_last->index);
       //pq_min.heapify_downwards(tuple_last->index_min);
-      pq_min.heapify_downwards(0);
+      //pq_min.heapify_downwards(0);
 
       number_relocations++;
   }
@@ -1571,20 +1569,27 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
 
     //cout << "tuple check count" << tuple_check ->count << endl;
 
+    /*
     bucket_tuple* tuple_check = pq_min.get_element(0);
+    //cout << "tuple check count" << tuple_check ->count << endl;
     for (uns64 i = 1; i < pq_min.size(); ++i) {
       bucket_tuple* current_tuple = pq_min.get_element(i);
       if (current_tuple->count < tuple_check->count) {
         tuple_check = current_tuple;
       }
     }
-    tuple_last = tuple_check;
+    */
+
+
+    tuple_last = pq_min.top();
+
 
     //cout << "tuple check index" << tuple_check->index_min << endl;
+    //cout << "tuple check count" << tuple_check ->count << endl;
     //cout << "tuple last count" << tuple_last->count << endl;
     //cout << "tuple last index" << tuple_last->index_min << endl;
 
-    assert(tuple_check->count == tuple_last->count);
+    //assert(tuple_check->count == tuple_last->count);
 
 
     //cout << "tuple count" << tuple_last->count << endl;
@@ -1647,7 +1652,7 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
       
       pq.heapify_downwards(index_in_heap);
       //pq_min.heapify_downwards(tuple_ptr->index_min);
-      //pq_min.heapify_upwards(tuple_ptr->index_min);
+      pq_min.heapify_upwards(tuple_ptr->index_min);
       //pq_min.delete_and_repush(tuple_ptr);
       //pq_min.heapify_downwards(0);
 
@@ -1658,9 +1663,15 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
       //this is the reason why I must keep track of the balls 
       balls[firstBall] = tuple_last->bucket;
 
+
+
+    ///////////////////////////////////////
+    //check this could be source of error?
+
       // Fix the heap ordering
-      pq.heapify_downwards(tuple_last->index);
-      //pq_min.heapify_downwards(tuple_last->index_min);
+      pq.heapify_upwards(tuple_last->index);
+
+      pq_min.heapify_downwards(tuple_last->index_min);
       //pq_min.heapify_upwards(tuple_last->index_min);
       //pq_min.delete_and_repush(tuple_last);
       //pq_min.heapify_downwards(0);
