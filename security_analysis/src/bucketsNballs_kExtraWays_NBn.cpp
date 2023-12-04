@@ -713,6 +713,9 @@ void spill_ball(uns64 index, uns64 ballID){
       ////////////////////////////////////////////////////////////////
      
     } else {
+      bucket_tuple* spill = bucket[spill_index].at(1).tuple_ptr;
+      cout << "spill_buclet: " << spill->bucket << endl;
+      cout << "bucket[spill_index].at(0).count: " << bucket[spill_index].at(0).count << endl; 
       assert(bucket[spill_index].at(0).count == SPILL_THRESHOLD);
       //if bucket of spill_index is also full, then recursive-spill, we call this a cuckoo-spill
       index = spill_index;
@@ -1058,10 +1061,13 @@ uns64 get_number_to_relocate_8(bucket_tuple* tuple_ptr)
     case 3:
     case 4:
     case 5:
-      //amount_to_relcoate = 2;
-      //break;
+      amount_to_relcoate = 2;
+      break;
     case 6:
     case 7:
+      amount_to_relcoate = 2;
+      break;
+    case 8:
       amount_to_relcoate = 1;
       break;
     default:
@@ -1393,57 +1399,50 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
     }
 
 
-
     /*
     //determine which bucket to relocate to based on the number of ways
     switch(CURR_NUM_WAYS) {
       case 4:
-        tuple_last = pq_min.top();
-        if(tuple_last == nullptr) {
-          return;
-        }
+        //tuple_last = pq_min.top();
+        //if(tuple_last == nullptr) {
+        //  return;
+        //}
         amount_to_relcoate = get_number_to_relocate_4(tuple_last); 
         break;
       case 8:
-        tuple_last = pq_min.top();
-        if(tuple_last == nullptr) {
-          return;
-        }
+        //tuple_last = pq_min.top();
+        //if(tuple_last == nullptr) {
+        //  return;
+        //}
         amount_to_relcoate = get_number_to_relocate_8(tuple_last);
         //amount_to_relcoate = 1;
         break;
       case 16:
-        tuple_last = pq_min.top();
-        if(tuple_last == nullptr) {
-          return;
-        }
+        //tuple_last = pq_min.top();
+        //if(tuple_last == nullptr) {
+        //  return;
+        //}
         amount_to_relcoate = get_number_to_relocate_16(tuple_last);
         break;
       default:
         break;
     }
     */
-    /*
-    if(tuple_last->count == 0) {
-      cout << "0" << endl;
-    }
-    if(tuple_last->count == 1) {
-      cout << "1" << endl;
-    }
-    if(tuple_last->count == 2) {
-      cout << "2" << endl;
-    }
-    if(tuple_last->count == 3) {
-      cout << "3" << endl;
-    }
-    if(tuple_last->count == 4) {
-      cout << "4" << endl;
-    }
-    */
-   amount_to_relcoate = 1;
+    
+    amount_to_relcoate = 1;
 
     for (uns64 i = 0; i < amount_to_relcoate; ++i) {
       tuple_last = pq_min.top();
+      
+      if(tuple_last == nullptr) {
+        return;
+      }
+
+      cout << "in relocate min heap" << endl;
+      cout << "tuple last bucket: " << tuple_last->bucket << endl;  
+      cout << "tuple ptr bucket: " << tuple_ptr->bucket << endl;
+
+
       //cout << i << endl;
       
       //get the first ball in the bucket to remove
