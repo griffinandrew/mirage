@@ -614,7 +614,7 @@ public:
     heapify_upwards(element->index_min);
   }
 
-  uns64 size(void){
+  uns64 size(void) {
     uns64 size = storage_min_.size();
     return size;
   }
@@ -657,8 +657,8 @@ void spill_ball(uns64 index, uns64 ballID){
   //heapify down to correct ordering as count is decreased
   //pq.heapify_downwards(index);
   pq.heapify_downwards(tuple_ptr->index);
-  //pq_min.heapify_downwards(tuple_ptr->index_min);
-  pq_min.heapify_downwards(0);
+  pq_min.heapify_downwards(tuple_ptr->index_min);
+  //pq_min.heapify_downwards(0);
   
   //remove inserted ball from bucket balls vector
   for (uns64 k =0; k < tuple_ptr->ball_list.size(); ++k){
@@ -705,8 +705,8 @@ void spill_ball(uns64 index, uns64 ballID){
       tuple_spill->ball_list.push_back(ballID);
       //heapify up to correct ordering as count is increased
       pq.heapify_upwards(tuple_spill->index);
-      //pq_min.heapify_upwards(tuple_spill->index_min);
-      pq_min.heapify_downwards(0);
+      pq_min.heapify_upwards(tuple_spill->index_min);
+      //pq_min.heapify_downwards(0);
       
       
       //above are changes
@@ -790,8 +790,8 @@ uns insert_ball(uns64 ballID){
   tuple_ptr->ball_list.push_back(ballID); //ball should be added to the bucket balls vector 
   //heapify up to correct ordering as count is increased 
   pq.heapify_upwards(tuple_ptr->index);
-  //pq_min.heapify_upwards(tuple_ptr->index_min);
-  pq_min.heapify_downwards(0);
+  pq_min.heapify_upwards(tuple_ptr->index_min);
+  //pq_min.heapify_downwards(0);
   
   //get bucket id to send to relocate if needed
   //on second thought is this not just index??
@@ -818,6 +818,7 @@ uns insert_ball(uns64 ballID){
     //relocate_LFU(tuple_ptr);
     relocate_min_heap(tuple_ptr);
   }
+  //relocate_min_heap(tuple_ptr);
   //relocate_LFU(tuple_ptr);
 
   //above are changes
@@ -864,8 +865,8 @@ uns64 remove_ball(void){
   tuple_ptr->ball_list.end());
   
   pq.heapify_downwards(tuple_ptr->index);
-  //pq_min.heapify_downwards(tuple_ptr->index_min);
-  pq_min.heapify_downwards(0);
+  pq_min.heapify_downwards(tuple_ptr->index_min);
+  //pq_min.heapify_downwards(0);
   
   //above are changes
   ////////////////////////////////////////////////////////////////
@@ -950,7 +951,6 @@ void init_buckets(void){
     mytuple->count = 0;
     //set the index in the push operation in the heap
     mytuple->index = 0;
-    
     //bucket is unqiue id for each bucket
     mytuple->bucket = ii; 
     //add access counters
@@ -1088,7 +1088,6 @@ uns64 get_number_to_relocate_4(bucket_tuple* tuple_ptr)
       case 2:
        amount_to_relcoate = 2;
         break;
-
       case 3:
       case 4:
        amount_to_relcoate = 1;
@@ -1415,11 +1414,9 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
       default:
         break;
     }
-    //cout << "amount to relocate: " << amount_to_relcoate << endl;
-    cout << "number of balls in last: " << tuple_last->count << endl;
-    //cout << "number of balls in bucket: " << tuple_ptr->count << endl;
-
-
+    if(tuple_last->count == 0) {
+      cout << "0" << endl;
+    }
 
     for (uns64 i = 0; i < amount_to_relcoate; ++i) {
       //get the first ball in the bucket to remove
@@ -1433,8 +1430,8 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
       //heapify down to correct ordering as count is decreased
       
       pq.heapify_downwards(index_in_heap);
-      //pq_min.heapify_downwards(tuple_ptr->index_min);
-      pq_min.heapify_downwards(0);
+      pq_min.heapify_downwards(tuple_ptr->index_min);
+      //pq_min.heapify_downwards(0);
 
       // Move the ball to the new bucket
       tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
@@ -1445,15 +1442,12 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
 
       // Fix the heap ordering
       pq.heapify_downwards(tuple_last->index);
-      //pq_min.heapify_downwards(tuple_last->index_min);
-      pq_min.heapify_downwards(0);
+      pq_min.heapify_downwards(tuple_last->index_min);
+      //pq_min.heapify_downwards(0);
 
       number_relocations++;
   }
-  
 }
-
-
 
 /////////////////////////////////////////////////////
 //relocate function, that mimics LRU
