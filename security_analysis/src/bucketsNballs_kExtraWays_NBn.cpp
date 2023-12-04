@@ -709,10 +709,9 @@ uns insert_ball(uns64 ballID){
   ////////////////////////////////////////////////////////////////
   //below are changes
 
-  //why am i relocating if at average tho?? this is not needed!!!
-  //if(bucket[bucket_id].at(0).count >= SPILL_THRESHOLD) {
-  if(bucket[bucket_id].at(0).count  >= BALLS_PER_BUCKET){ //but now night shouldnt this not be the case?? because it already spilled?? MFs
-  //if(bucket[bucket_id].at(0).count  >= 3){
+  //why am i relocating if at average tho?? this is not needed!!!.... LRU /LFU performs better with this 
+  //if(bucket[bucket_id].at(0).count  >= BALLS_PER_BUCKET){ //but now night shouldnt this not be the case?? because it already spilled?? MFs
+  if(bucket[bucket_id].at(0).count  > BALLS_PER_BUCKET){
     relocate(tuple_ptr); //now just every time a ball is inserted it is relocated
     //relocate_low_overhead(tuple_ptr);
     //relocate_LRU_no_heap(tuple_ptr);
