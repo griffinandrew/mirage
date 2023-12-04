@@ -603,7 +603,7 @@ public:
     if (size == 0) {
       return;
     }
-    swap_elements(0, size - 1);
+    //swap_elements(0, size - 1);
     storage_min_.pop_back();
     heapify_downwards(0);
   }
