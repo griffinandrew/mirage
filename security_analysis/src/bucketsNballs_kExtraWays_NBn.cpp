@@ -83,7 +83,8 @@ struct bucket_tuple {
   uns64 access_count; //number of times bucket has been accessed, used for LRU
   uns64 frequency; //number of times bucket has been accessed, used for LFU
   uns64 index_min; //current location in the min heap 
-  uns64 insertion_order;
+  uns64 index_lfu; //current location in the lfu heap
+  uns64 index_lru; //current location in the lru heap
 };
 
 union bucket_value {
@@ -144,40 +145,16 @@ uns64 number_empty_buckets = 0;
 uns64 current_timestamp = 0;
 
 
-//can prob delete now
-uns64 number_no_1 = 0;
-uns64 number_no_2 = 0;
-uns64 number_no_3 = 0;
-uns64 number_no_4 = 0;
-uns64 number_no_5 = 0;
-uns64 number_no_6 = 0;
-uns64 number_no_7 = 0;
-uns64 number_no_8 = 0;
-uns64 number_no_9 = 0;
-uns64 number_no_10 = 0;
-uns64 number_no_11 = 0;
-uns64 number_no_12 = 0;
-uns64 number_no_13 = 0;
-uns64 number_no_14 = 0;
-uns64 number_no_15 = 0;
-
 //this is used to determine how many balls to relocate
 uns64 CURR_NUM_WAYS = 0;
 
-
 uns64 last_row_count_found = 0;
 
-
-uns64 insertion_counter = 0;
-
 /////////////////////////////////////////////////////
-/////////////////////////////////////////////////////
-//priority queue that is used to determine which 
-//bucket to relocate and which bucket to insert into
-/////////////////////////////////////////////////////
+// FUNCTIONS - Ball Insertion, Removal, Spill, etc.
 /////////////////////////////////////////////////////
 
-class GriffinsAwesomePriorityQueue {
+class GriffinsAwesomeLFUQueue {
 public:
   // Called when count is incremented.
   void heapify_upwards(uns64 index) {
@@ -186,7 +163,7 @@ public:
     }
 
     uns64 parent_index = (index - 1) / 2;
-    if (storage_[index]->count > storage_[parent_index]->count) {
+    if (storage_lfu_[index]->frequency < storage_lfu_[parent_index]->frequency) {
       swap_elements(index, parent_index);
       heapify_upwards(parent_index);
     }
@@ -194,20 +171,20 @@ public:
 
   // Called when count is decremented.
   void heapify_downwards(uns64 index) {
-    uns64 size = storage_.size();
+    uns64 size = storage_lfu_.size();
     
     uns64 max = index;
     uns64 left_index = 2 * index + 1;
     uns64 right_index = 2 * index + 2;
 
-    if (left_index < size && storage_[left_index]->count > storage_[max]->count) {
+    if (left_index < size && storage_lfu_[left_index]->frequency < storage_lfu_[max]->frequency) {
       max = left_index;
     }
 
-    if (right_index < size && storage_[right_index]->count > storage_[max]->count) {
+    if (right_index < size && storage_lfu_[right_index]->frequency < storage_lfu_[max]->frequency) {
       max = right_index;
     }
-
+    
     if (max != index) {
       swap_elements(index, max);
       heapify_downwards(max);
@@ -215,347 +192,150 @@ public:
   }
 
   bucket_tuple *top() const {
-    return storage_[0];
+    if(storage_lfu_.size() == 0){
+      return nullptr;
+    }
+    return storage_lfu_[0];
   }
 
   void pop() {
-    uns64 size = storage_.size();
+    uns64 size = storage_lfu_.size();
     if (size == 0) {
       return;
     }
     swap_elements(0, size - 1);
-    storage_.pop_back();
+    storage_lfu_.pop_back();
     heapify_downwards(0);
   }
 
   void push(bucket_tuple* element) {
-    storage_.push_back(element);
-    element->index = storage_.size() - 1;
-    heapify_upwards(element->index);
+    storage_lfu_.push_back(element);
+    element->index_lfu = storage_lfu_.size() - 1;
+    heapify_upwards(element->index_lfu);
   }
 
-  uns64 size(void){
-    uns64 size = storage_.size();
+  uns64 size(void) {
+    uns64 size = storage_lfu_.size();
     return size;
   }
 
   bucket_tuple* get_element(uns64 index) {
-    bucket_tuple* val = storage_[index];
+    bucket_tuple* val = storage_lfu_[index];
     return val;
-  }
-
-    bucket_tuple* get_least_filled_4ways(){
-    //this linearly searches for the first element with count 0 
-    bool zero_found = false;
-    bool one_found = false;
-    bool two_found = false;
-    bool three_found = false;
-
-    for (const auto& element : storage_) {
-      if (element->count == 0) {
-        number_empty_buckets++;
-        bool zero_found = true;
-        return element;
-      }
-    }
-    if (zero_found == false) {
-      for (const auto& element : storage_) {
-        if (element->count == 1) {
-          number_no_1++;
-          bool one_found = true;
-          return element;
-        }
-      }
-    }
-    if(one_found == false) {
-      for (const auto& element : storage_) {
-        if (element->count == 2) {
-          number_no_2++;  
-          bool two_found = true;
-          return element;
-        }
-      }
-    }
-    if(two_found == false) {
-      for (const auto& element : storage_) {
-        if (element->count == 3) {
-          bool three_found = true;
-          return element;
-        }
-      }
-    }
-    return nullptr;
-  }
-
-  bucket_tuple* get_least_filled_8ways(){
-      bool zero_found = false;
-      bool one_found = false;
-      bool two_found = false;
-      bool three_found = false;
-      bool four_found = false;
-      bool five_found = false;
-      bool six_found = false;
-      bool seven_found = false;
-
-      for (const auto& element : storage_) {
-        if (element->count == 0) {
-          number_empty_buckets++;
-          bool zero_found = true;
-          return element;
-        }
-      }
-      if (zero_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 1) {
-            number_no_1++;
-            bool one_found = true;
-            return element;
-          }
-        }
-      }
-      if(one_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 2) {
-            number_no_2++;  
-            bool two_found = true;
-            return element;
-          }
-        }
-      }
-      if(two_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 3) {
-            number_no_3++;
-            bool three_found = true;
-            return element;
-          }
-        }
-      }
-      if(three_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 4) {
-            number_no_4++;
-            bool four_found = true;
-            return element;
-          }
-        }
-      }
-      if(four_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 5) {
-            number_no_5++;
-            bool five_found = true;
-            return element;
-          }
-        }
-      }
-      if(five_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 6) {
-            number_no_6++;
-            bool six_found = true;
-            return element;
-          }
-        }
-      }
-      if(six_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 7) {
-            number_no_7++;
-            bool seven_found = true;
-            return element;
-          }
-        }
-      }
-      return nullptr;
-  }
-
-  bucket_tuple* get_least_filled_16ways(){
-      bool zero_found = false;
-      bool one_found = false;
-      bool two_found = false;
-      bool three_found = false;
-      bool four_found = false;
-      bool five_found = false;
-      bool six_found = false;
-      bool seven_found = false;
-      bool eight_found = false;
-      bool nine_found = false;
-      bool ten_found = false;
-      bool eleven_found = false;
-      bool twelve_found = false;
-      bool thirteen_found = false;
-      bool fourteen_found = false;
-      bool fifteen_found = false;
-
-      for (const auto& element : storage_) {
-        if (element->count == 0) {
-          number_empty_buckets++;
-          bool zero_found = true;
-          return element;
-        }
-      }
-      if (zero_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 1) {
-            number_no_1++;
-            bool one_found = true;
-            return element;
-          }
-        }
-      }
-      if(one_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 2) {
-            number_no_2++;  
-            bool two_found = true;
-            return element;
-          }
-        }
-      }
-      if(two_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 3) {
-            number_no_3++;
-            bool three_found = true;
-            return element;
-          }
-        }
-      }
-      if(three_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 4) {
-            number_no_4++;
-            bool four_found = true;
-            return element;
-          }
-        }
-      }
-      if(four_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 5) {
-            number_no_5++;
-            bool five_found = true;
-            return element;
-          }
-        }
-      }
-      if(five_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 6) {
-            number_no_6++;
-            bool six_found = true;
-            return element;
-          }
-        }
-      }
-      if(six_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 7) {
-            number_no_7++;
-            bool seven_found = true;
-            return element;
-          }
-        }
-      }
-      if(seven_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 8) {
-            number_no_8++;
-            bool eight_found = true;
-            return element;
-          }
-        }
-      }
-      if(eight_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 9) {
-            number_no_9++;
-            bool nine_found = true;
-            return element;
-          }
-        }
-      }
-      if(nine_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 10) {
-            number_no_10++;
-            bool ten_found = true;
-            return element;
-          }
-        }
-      }
-      if(ten_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 11) {
-            number_no_11++;
-            bool eleven_found = true;
-            return element;
-          }
-        }
-      }
-      if(eleven_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 12) {
-            number_no_12++;
-            bool twelve_found = true;
-            return element;
-          }
-        }
-      }
-      if(twelve_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 13) {
-            number_no_13++;
-            bool thirteen_found = true;
-            return element;
-          }
-        }
-      }
-      if(thirteen_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 14) {
-            number_no_14++;
-            bool fourteen_found = true;
-            return element;
-          }
-        }
-      }
-      if(fourteen_found == false) {
-        for (const auto& element : storage_) {
-          if (element->count == 15) {
-            number_no_15++;
-            bool fifteen_found = true;
-            return element;
-          }
-        }
-      }
-      return nullptr;
   }
 
 
 private:
   void swap_elements(uns64 a, uns64 b) {
-    std::swap(storage_[a], storage_[b]); //does this counts? no counts are the same
-    std::swap(storage_[a]->index, storage_[b]->index); //do i also need to swap counts? or no i dont think
+    if (a < storage_lfu_.size() && b < storage_lfu_.size()) {
+    std::swap(storage_lfu_[a], storage_lfu_[b]); //does this counts? no counts are the same
+    std::swap(storage_lfu_[a]->index_lfu, storage_lfu_[b]->index_lfu); //do i also need to swap counts? or no i dont think
+    }
   }
 
 private:
-  vector<bucket_tuple*> storage_;
+  vector<bucket_tuple*> storage_lfu_;
 };
 
-GriffinsAwesomePriorityQueue pq;
-
+GriffinsAwesomeLFUQueue pq_lfu;
 /////////////////////////////////////////////////////
-// FUNCTIONS - Ball Insertion, Removal, Spill, etc.
+/////////////////////////////////////////////////////
+//priority queue that is used to determine which 
+//bucket to insert into
+/////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
 
+
+class GriffinsAwesomeLRUQueue {
+public:
+  // Called when count is incremented.
+  void heapify_upwards(uns64 index) {
+    if (index == 0) {
+      return;
+    }
+
+    uns64 parent_index = (index - 1) / 2;
+    if (storage_lru_[index]->access_count < storage_lru_[parent_index]->access_count) {
+      swap_elements(index, parent_index);
+      heapify_upwards(parent_index);
+    }
+  }
+
+  // Called when count is decremented.
+  void heapify_downwards(uns64 index) {
+    uns64 size = storage_lru_.size();
+    
+    uns64 max = index;
+    uns64 left_index = 2 * index + 1;
+    uns64 right_index = 2 * index + 2;
+
+    if (left_index < size && storage_lru_[left_index]->access_count< storage_lru_[max]->access_count) {
+      max = left_index;
+    }
+
+    if (right_index < size && storage_lru_[right_index]->access_count < storage_lru_[max]->access_count) {
+      max = right_index;
+    }
+    
+    if (max != index) {
+      swap_elements(index, max);
+      heapify_downwards(max);
+    }
+  }
+
+  bucket_tuple *top() const {
+    if(storage_lru_.size() == 0){
+      return nullptr;
+    }
+    return storage_lru_[0];
+  }
+
+  void pop() {
+    uns64 size = storage_lru_.size();
+    if (size == 0) {
+      return;
+    }
+    swap_elements(0, size - 1);
+    storage_lru_.pop_back();
+    heapify_downwards(0);
+  }
+
+  void push(bucket_tuple* element) {
+    storage_lru_.push_back(element);
+    element->index_lru = storage_lru_.size() - 1;
+    heapify_upwards(element->index_lru);
+  }
+
+  uns64 size(void) {
+    uns64 size = storage_lru_.size();
+    return size;
+  }
+
+  bucket_tuple* get_element(uns64 index) {
+    bucket_tuple* val = storage_lru_[index];
+    return val;
+  }
+
+
+private:
+  void swap_elements(uns64 a, uns64 b) {
+    if (a < storage_lru_.size() && b < storage_lru_.size()) {
+    std::swap(storage_lru_[a], storage_lru_[b]); //does this counts? no counts are the same
+    std::swap(storage_lru_[a]->index_lru, storage_lru_[b]->index_lru); //do i also need to swap counts? or no i dont think
+    }
+  }
+
+private:
+  vector<bucket_tuple*> storage_lru_;
+};
+
+GriffinsAwesomeLRUQueue pq_lru;
 
 
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
 //priority queue that is used to determine which 
-//bucket to relocate and which bucket to insert into
+//bucket to insert into
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
 
@@ -582,7 +362,6 @@ public:
     uns64 left_index = 2 * index + 1;
     uns64 right_index = 2 * index + 2;
 
-    
     if (left_index < size && storage_min_[left_index]->count < storage_min_[max]->count) {
       max = left_index;
     }
@@ -631,57 +410,6 @@ public:
     return val;
   }
 
-  void delete_and_repush(bucket_tuple* element) {
-    uns64 index = element->index_min;
-    swap_elements(index, storage_min_.size() - 1);
-    storage_min_.pop_back();
-    heapify_downwards(index);
-    heapify_upwards(index);
-    push(element);
-  }
-
-  void print() {
-    for (std::size_t i = 0; i < storage_min_.size(); ++i) {
-        std::cout << "Index: " << i << ", Count: " << storage_min_[i]->count << std::endl;
-        // Print other fields...
-    }
-  }
-
-  void heapify_all() {
-    // Option 1: Bottom-up approach using heapify_downwards
-    for (int i = (storage_min_.size() / 2) - 1; i >= 0; --i) {
-        heapify_downwards(i);
-    }
-
-    // Option 2: Top-down approach using heapify_upwards
-    // for (int i = 0; i < pq.size(); ++i) {
-    //     pq.heapify_upwards(i);
-    // }
-  }
-
-
-
-  bool is_min_heap() {
-  for (std::size_t i = 0; i < storage_min_.size(); ++i) {
-      std::size_t left_child = 2 * i + 1;
-      std::size_t right_child = 2 * i + 2;
-
-      // Check left child
-      if (left_child < storage_min_.size() && storage_min_[left_child]->count < storage_min_[i]->count) {
-          //std::cerr << "Violation at index " << i << ": Left child is smaller." << std::endl;
-          return false;
-      }
-
-      // Check right child
-      if (right_child < storage_min_.size() && storage_min_[right_child]->count < storage_min_[i]->count) {
-          //std::cerr << "Violation at index " << i << ": Right child is smaller." << std::endl;
-          return false;
-      }
-  }
-  
-  std::cout << "Heap is valid." << std::endl;
-  return true;
-}
 
 private:
   void swap_elements(uns64 a, uns64 b) {
@@ -696,14 +424,6 @@ private:
 };
 
 GriffinsAwesomeMinQueue pq_min;
-
-
-  void print(){
-    for (uns64 i = 0; i < pq_min.size(); ++i) {
-        bucket_tuple* element = pq_min.get_element(i);
-        std::cout << "Index: " << i << ", Count: " << element->count << ", Bucket: " << element->bucket << "\n";
-    }
-  }
 
 
 /////////////////////////////////////////////////////
@@ -724,14 +444,10 @@ void spill_ball(uns64 index, uns64 ballID){
   bucket[index].at(0).count--;
   //reflect the pointer count to match the new count, this can just be a decremet, would probs be faster
   tuple_ptr->count--;
-  //heapify down to correct ordering as count is decreased
-  //pq.heapify_downwards(index);
-  pq.heapify_downwards(tuple_ptr->index);
-  //pq_min.heapify_downwards(tuple_ptr->index_min);
+  //heapify up to correct ordering as count is decreased
   pq_min.heapify_upwards(tuple_ptr->index_min);
+  pq_lfu.heapify_upwards(tuple_ptr->index_lfu);
 
-  //pq_min.delete_and_repush(tuple_ptr);
-  //pq_min.heapify_downwards(0);
   
   //remove inserted ball from bucket balls vector
   for (uns64 k =0; k < tuple_ptr->ball_list.size(); ++k){
@@ -777,22 +493,16 @@ void spill_ball(uns64 index, uns64 ballID){
       //add ball to bucket balls vector
       tuple_spill->ball_list.push_back(ballID);
       //heapify up to correct ordering as count is increased
-      pq.heapify_upwards(tuple_spill->index);
+      //pq.heapify_upwards(tuple_spill->index);
 
-      //pq_min.heapify_upwards(tuple_spill->index_min);
       pq_min.heapify_downwards(tuple_spill->index_min);
-
-      //pq_min.delete_and_repush(tuple_spill);
-      //pq_min.heapify_downwards(0);
-      
+      pq_lfu.heapify_downwards(tuple_spill->index_lfu);
       
       //above are changes
       ////////////////////////////////////////////////////////////////
      
     } else {
       bucket_tuple* spill = bucket[spill_index].at(1).tuple_ptr;
-      //cout << "spill_buclet: " << spill->bucket << endl;
-      //cout << "bucket[spill_index].at(0).count: " << bucket[spill_index].at(0).count << endl; 
       assert(bucket[spill_index].at(0).count == SPILL_THRESHOLD);
       //if bucket of spill_index is also full, then recursive-spill, we call this a cuckoo-spill
       index = spill_index;
@@ -868,21 +578,11 @@ uns insert_ball(uns64 ballID){
   tuple_ptr->frequency++;
   //add ball id to current bucket
   tuple_ptr->ball_list.push_back(ballID); //ball should be added to the bucket balls vector 
-  //heapify up to correct ordering as count is increased 
-  pq.heapify_upwards(tuple_ptr->index);
-  //pq_min.heapify_upwards(tuple_ptr->index_min);
+  //heapify down to correct ordering as count is increased 
   pq_min.heapify_downwards(tuple_ptr->index_min);
+  pq_lfu.heapify_downwards(tuple_ptr->index_lfu);
 
-  //pq_min.delete_and_repush(tuple_ptr);
-  //pq_min.heapify_downwards(0);
-  
-  //get bucket id to send to relocate if needed
-  //on second thought is this not just index??
   uns64 bucket_id = tuple_ptr->bucket;
-
-  //cout << "pq_min.top()->count: " << pq_min.top()->count << endl;
-  //cout << "elemet 1 " << pq_min.get_element(1)->count << endl;
-  //cout << "elemet 2 " << pq_min.get_element(2)->count << endl;
 
   //above are changes
   ////////////////////////////////////////////////////////////////
@@ -894,21 +594,11 @@ uns insert_ball(uns64 ballID){
   ////////////////////////////////////////////////////////////////
   //below are changes
 
-  //why am i relocating if at average tho?? this is not needed!!!.... LRU /LFU performs better with this 
-  //if(bucket[bucket_id].at(0).count  >= BALLS_PER_BUCKET){ //but now night shouldnt this not be the case?? because it already spilled?? MFs
-  //if(bucket[bucket_id].at(0).count > BALLS_PER_BUCKET || init_buckets_done == true){
-
   if(bucket[bucket_id].at(0).count > BALLS_PER_BUCKET){
-    //relocate(tuple_ptr); //now just every time a ball is inserted it is relocated
-    //relocate_low_overhead(tuple_ptr);
-    //relocate_LRU_no_heap(tuple_ptr);
-    //relocate_LFU_no_heap(tuple_ptr);
     //relocate_LRU(tuple_ptr);
-    //relocate_LFU(tuple_ptr);
-    relocate_min_heap(tuple_ptr);
+    relocate_LFU(tuple_ptr);
+    //relocate_min_heap(tuple_ptr);
   }
-  //relocate_min_heap(tuple_ptr);
-  //relocate_LFU(tuple_ptr);
 
   //above are changes
   ////////////////////////////////////////////////////////////////
@@ -953,12 +643,9 @@ uns64 remove_ball(void){
   std::remove(tuple_ptr->ball_list.begin(), tuple_ptr->ball_list.end(), ballID),
   tuple_ptr->ball_list.end());
   
-  pq.heapify_downwards(tuple_ptr->index);
-  //pq_min.heapify_downwards(tuple_ptr->index_min);
+  //pq.heapify_downwards(tuple_ptr->index);
   pq_min.heapify_upwards(tuple_ptr->index_min);
-
-  //pq_min.delete_and_repush(tuple_ptr);
-  //pq_min.heapify_downwards(0);
+  pq_lfu.heapify_upwards(tuple_ptr->index_lfu);
   
   //above are changes
   ////////////////////////////////////////////////////////////////
@@ -1052,10 +739,11 @@ void init_buckets(void){
     //add index for min
     mytuple->index_min = 0;
     //this heapfies and adds to heap
-    mytuple->insertion_order = insertion_counter++;
-    pq.push(mytuple);
+    //pq.push(mytuple);
     //add to min heap
+    mytuple->index_lfu = 0;
     pq_min.push(mytuple);
+    pq_lfu.push(mytuple);
     //set the pointer to the tuple in the bucket
     bucket[ii].at(1).tuple_ptr = mytuple;
 
@@ -1148,7 +836,7 @@ uns64 get_number_to_relocate_8(bucket_tuple* tuple_ptr)
     case 1:
     case 2:
     case 3:
-      amount_to_relcoate = 2;
+      amount_to_relcoate = 3;
       break;
     case 4:
     case 5:
@@ -1191,300 +879,9 @@ uns64 get_number_to_relocate_4(bucket_tuple* tuple_ptr)
   return amount_to_relcoate;
 }
 
-///////////////////////////////////////////////////////////////
-//get number of less filled bucket, for 4 ways
-///////////////////////////////////////////////////////////////
-
-bucket_tuple* get_min_bucket_4ways() {
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 0) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 1) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 2) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 3) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  return nullptr; // Return nullptr if no empty bucket is foun
-}
-
-
-///////////////////////////////////////////////////////////////
-//get number of less filled bucket, for 8 ways
-///////////////////////////////////////////////////////////////
-
-bucket_tuple* get_min_bucket_8ways() {
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 0) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 1) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 2) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 3) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-    for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 4) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 5) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 6) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 7) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  return nullptr; // Return nullptr if no empty bucket is foun
-}
-
-
-
-
-///////////////////////////////////////////////////////////////
-//get number of less filled bucket, for 16 ways
-///////////////////////////////////////////////////////////////
-
-bucket_tuple* get_min_bucket_16ways() {
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 0) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 1) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 2) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 3) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-    for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 4) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 5) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 6) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 7) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 8) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 9) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 10) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 11) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-    for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 12) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 13) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 14) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    if (bucket[i].at(0).count == 15) {
-      number_empty_buckets++;
-      return bucket[i].at(1).tuple_ptr; // Return a pointer to the element
-    }
-  }
-  return nullptr; // Return nullptr if no empty bucket is foun
-}
-
-
-////////////////////////////////////////////////////////////
-//ideal relocate function, that creates even distribution
-////////////////////////////////////////////////////////////
-
-
-void relocate(bucket_tuple* tuple_ptr) {
-    uns64 index_in_heap = tuple_ptr->index;
-    uns64 buck_to_move = tuple_ptr->bucket;
-    bucket_tuple* tuple_last = nullptr;
-
-    //var to keep track of how many balls to relocate
-    uns64 amount_to_relcoate; 
-
-    //determine which bucket to relocate to based on the number of ways
-    switch(CURR_NUM_WAYS) {
-      case 4:
-        tuple_last = pq.get_least_filled_4ways();
-        if(tuple_last == nullptr) {
-          return;
-        }
-        amount_to_relcoate = get_number_to_relocate_4(tuple_last); 
-        break;
-      case 8:
-        tuple_last = pq.get_least_filled_8ways();
-        if(tuple_last == nullptr) {
-          return;
-        }
-        amount_to_relcoate = get_number_to_relocate_8(tuple_last);
-        break;
-      case 16:
-        tuple_last = pq.get_least_filled_16ways();
-        if(tuple_last == nullptr) {
-          return;
-        }
-        amount_to_relcoate = get_number_to_relocate_16(tuple_last);
-        break;
-      default:
-        break;
-    }
-    //cout << "amount to relocate: " << amount_to_relcoate << endl;
-    //cout << "number of balls in bucket: " << tuple_ptr->count << endl;
-
-
-
-    for (uns64 i = 0; i < amount_to_relcoate; ++i) {
-      //get the first ball in the bucket to remove
-      uns64 firstBall = tuple_ptr->ball_list.front();
-      //erase bucket at the front of the list 
-      tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin()); 
-
-      //decrement the count of the bucket that is being relocated from
-      tuple_ptr->count--;
-      bucket[buck_to_move].at(0).count--;
-      //heapify down to correct ordering as count is decreased
-      
-      pq.heapify_downwards(index_in_heap);
-      //pq_min.heapify_downwards(tuple_ptr->index_min);
-      pq_min.heapify_downwards(0);
-
-      // Move the ball to the new bucket
-      tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
-      tuple_last->count++;
-      bucket[tuple_last->bucket].at(0).count++;
-      //this is the reason why I must keep track of the balls 
-      balls[firstBall] = tuple_last->bucket;
-
-      // Fix the heap ordering
-      pq.heapify_downwards(tuple_last->index);
-      //pq_min.heapify_downwards(tuple_last->index_min);
-      //pq_min.heapify_downwards(0);
-
-      number_relocations++;
-  }
-  
-}
-
-
-
-
-
 ////////////////////////////////////////////////////////////
 //ideal relocate function, that creates even distribution with min heap
 ////////////////////////////////////////////////////////////
-
-
-
-void heapify_bottom_up() {
-    int size = pq_min.size();
-
-    int i = (size / 2) - 1;
-    pq_min.heapify_downwards(i);
-
-    // Start from the last non-leaf node
-    //for (int i = (size / 2) - 1; i >= 0; --i) {
-    //    pq_min.heapify_downwards(i);
-    //}
-}
 
 void relocate_min_heap(bucket_tuple* tuple_ptr) {
     uns64 index_in_heap = tuple_ptr->index;
@@ -1500,145 +897,85 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
       return;
     }
 
-    //determine which bucket to relocate to based on the number of ways
-    /*
+    tuple_last = pq_min.top();
+        
+    if(tuple_last == nullptr) {
+      return;
+    }
+    
+
+    //get the first ball in the bucket to remove
+    uns64 firstBall = tuple_ptr->ball_list.front();
+    //erase bucket at the front of the list 
+    tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin()); 
+
+    //decrement the count of the bucket that is being relocated from
+    tuple_ptr->count--;
+    bucket[buck_to_move].at(0).count--;
+
+    //heapify up to correct ordering as count is decreased
+    pq_min.heapify_upwards(tuple_ptr->index_min);
+
+    // Move the ball to the new bucket
+    tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
+    tuple_last->count++;
+    bucket[tuple_last->bucket].at(0).count++;
+    //this is the reason why I must keep track of the balls 
+    balls[firstBall] = tuple_last->bucket;
+
+
+   ///////////////////////////////////////
+    //check this could be source of error? it was needed to be inverted
+    pq_min.heapify_downwards(tuple_last->index_min);
+
+    number_relocations++;
+  
+}
+
+/////////////////////////////////////////////////////
+//relocate function, that mimics LRU
+/////////////////////////////////////////////////////
+
+
+void relocate_LFU(bucket_tuple* tuple_ptr) {
+    uns64 index_in_heap = tuple_ptr->index;
+    uns64 buck_to_move = tuple_ptr->bucket;
+
+    bucket_tuple* tuple_last = pq_lfu.top();
+
+    
+    if (tuple_last == nullptr) {
+      return;
+    }
+
+    if (tuple_last->count == BALLS_PER_BUCKET || tuple_last->count == SPILL_THRESHOLD) {
+      return;
+    }
+    //cout << "tuple count" << tuple_ptr->count << endl;
+    
+    uns64 amount_to_relcoate = 1;
+
+
+    
+    //uns64 amount_to_relcoate = 0;
     switch(CURR_NUM_WAYS) {
       case 4:
-        //tuple_last = pq_min.top();
-        //if(tuple_last == nullptr) {
-        //  return;
-        //}
         amount_to_relcoate = get_number_to_relocate_4(tuple_last); 
         break;
       case 8:
-        tuple_last = pq_min.top();
-        //if(tuple_last == nullptr) {
-        //  return;
-        //}
         amount_to_relcoate = get_number_to_relocate_8(tuple_last);
-        //amount_to_relcoate = 1;
         break;
       case 16:
-        //tuple_last = pq_min.top();
-        //if(tuple_last == nullptr) {
-        //  return;
-        //}
         amount_to_relcoate = get_number_to_relocate_16(tuple_last);
         break;
       default:
         break;
     }
-    */
-
-    /*
-    bucket_tuple* check2 = bucket[0].at(1).tuple_ptr;
-    for (uns64 i = 1; i < NUM_BUCKETS; ++i) {
-      bucket_tuple* current_tuple = bucket[i].at(1).tuple_ptr;
-      if (current_tuple->count < check2->count) {
-        check2 = current_tuple;
-      }
-    }
-    */
-
     
-    //amount_to_relcoate = 1;
-
-
-    if(tuple_ptr->count == SPILL_THRESHOLD - 1 || tuple_ptr->count == SPILL_THRESHOLD - 2) {
-      return;
-    } 
-
-    //pq_min.heapify_all();
-    //pq_min.heapify_downwards(0);
-    
-    /*
-    heapify_bottom_up();
-
-    tuple_last = pq_min.top();
-
-    bucket_tuple* tuple_check = pq_min.get_element(0);
-    for (uns64 i = 1; i < pq_min.size(); ++i) {
-      bucket_tuple* current_tuple = pq_min.get_element(i);
-      if (current_tuple->count < tuple_check->count) {
-        tuple_check = current_tuple;
-      }
-    }
-
-    */
-    //print();
-
-    //cout << "tuple check count" << tuple_check ->count << endl;
-
-    /*
-    bucket_tuple* tuple_check = pq_min.get_element(0);
-    //cout << "tuple check count" << tuple_check ->count << endl;
-    for (uns64 i = 1; i < pq_min.size(); ++i) {
-      bucket_tuple* current_tuple = pq_min.get_element(i);
-      if (current_tuple->count < tuple_check->count) {
-        tuple_check = current_tuple;
-      }
-    }
-    */
-
-
-    tuple_last = pq_min.top();
-
-
-    //cout << "tuple check index" << tuple_check->index_min << endl;
-    //cout << "tuple check count" << tuple_check ->count << endl;
-    //cout << "tuple last count" << tuple_last->count << endl;
-    //cout << "tuple last index" << tuple_last->index_min << endl;
-
-    //assert(tuple_check->count == tuple_last->count);
-
-
-    //cout << "tuple count" << tuple_last->count << endl;
-    //cout << "check2 count" << check2->count << endl;
-    //assert(check2->count == tuple_last->count);
-
-    //bucket_tuple* check = pq.get_least_filled_8ways();
-
-    //cout << "check count" << check->count << endl;
-    //cout << "tuple count" << tuple_last->count << endl;
-    //cout << "check2 count" << check2->count << endl;
-    //assert(check->count == tuple_last->count);
-
-
-
-    
-    if(tuple_last->count == 2) {
-      amount_to_relcoate = 2;
-    }
-    if(tuple_last->count == 1) {
-      amount_to_relcoate = 2;
-    }
-    if(tuple_last->count == 0) {
-      amount_to_relcoate = 2;
-    }
-    
-    //if(tuple_last->count == 0) {
-    //  amount_to_relcoate = 2;
-    //}
     
 
 
     for (uns64 i = 0; i < amount_to_relcoate; ++i) {
-      //tuple_last = pq_min.top();
-      //cout << "tuple last bucket: " << tuple_last->bucket << endl;
-      //cout << "tuple last count: " << tuple_last->count << endl;
-      
-      if(tuple_last == nullptr) {
-        return;
-      }
-      
-
-      //cout << "in relocate min heap" << endl;
-      //cout << "tuple last bucket: " << tuple_last->bucket << endl;  
-      //cout << "tuple ptr bucket: " << tuple_ptr->bucket << endl;
-
-
-      //cout << i << endl;
-      
       //get the first ball in the bucket to remove
       uns64 firstBall = tuple_ptr->ball_list.front();
       //erase bucket at the front of the list 
@@ -1648,42 +985,31 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
       tuple_ptr->count--;
       bucket[buck_to_move].at(0).count--;
 
-      //heapify down to correct ordering as count is decreased
-      
-      pq.heapify_downwards(index_in_heap);
-      //pq_min.heapify_downwards(tuple_ptr->index_min);
-      pq_min.heapify_upwards(tuple_ptr->index_min);
-      //pq_min.delete_and_repush(tuple_ptr);
-      //pq_min.heapify_downwards(0);
+      pq_lfu.heapify_upwards(tuple_ptr->index_lfu);
 
       // Move the ball to the new bucket
       tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
       tuple_last->count++;
       bucket[tuple_last->bucket].at(0).count++;
+      tuple_last->frequency++;
       //this is the reason why I must keep track of the balls 
       balls[firstBall] = tuple_last->bucket;
 
-
-
-    ///////////////////////////////////////
-    //check this could be source of error?
-
       // Fix the heap ordering
-      pq.heapify_upwards(tuple_last->index);
-
-      pq_min.heapify_downwards(tuple_last->index_min);
-      //pq_min.heapify_upwards(tuple_last->index_min);
-      //pq_min.delete_and_repush(tuple_last);
-      //pq_min.heapify_downwards(0);
+      pq_lfu.heapify_downwards(tuple_last->index_lfu);
 
       number_relocations++;
   }
 }
 
+
+
 /////////////////////////////////////////////////////
-//relocate function, that mimics LRU
+//relocate function, that mimics LFU
 /////////////////////////////////////////////////////
 
+
+/*
 void relocate_LRU(bucket_tuple* tuple_ptr) {
     uns64 index_in_heap = tuple_ptr->index;
     uns64 buck_to_move = tuple_ptr->bucket;
@@ -1691,225 +1017,6 @@ void relocate_LRU(bucket_tuple* tuple_ptr) {
     bucket_tuple* tuple_last = pq.get_element(0);
     for (uns64 i = 1; i < pq.size(); ++i) {
       bucket_tuple* current_tuple = pq.get_element(i);
-      if (current_tuple->access_count < tuple_last->access_count) {
-        tuple_last = current_tuple;
-      }
-    }
-    
-    if (tuple_last == nullptr) {
-      return;
-    }
-
-    if (tuple_last->count == SPILL_THRESHOLD) {
-      return;
-    }
-    
-    uns64 amount_to_relcoate = 0;
-    switch(CURR_NUM_WAYS) {
-      case 4:
-        amount_to_relcoate = get_number_to_relocate_4(tuple_last); 
-        break;
-      case 8:
-        amount_to_relcoate = get_number_to_relocate_8(tuple_last);
-        break;
-      case 16:
-        amount_to_relcoate = get_number_to_relocate_16(tuple_last);
-        break;
-      default:
-        break;
-    }
-
-
-    for (uns64 i = 0; i < amount_to_relcoate; ++i) {
-      //get the first ball in the bucket to remove
-      uns64 firstBall = tuple_ptr->ball_list.front();
-      //erase bucket at the front of the list 
-      tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin()); 
-
-      //decrement the count of the bucket that is being relocated from
-      tuple_ptr->count--;
-      bucket[buck_to_move].at(0).count--;
-      //heapify down to correct ordering as count is decreased
-      pq.heapify_downwards(index_in_heap);
-      
-      //pq_min.heapify_downwards(tuple_ptr->index_min);
-      pq_min.heapify_downwards(0);
-
-      // Move the ball to the new bucket
-      tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
-      tuple_last->count++;
-      bucket[tuple_last->bucket].at(0).count++;
-      //this is the reason why I must keep track of the balls 
-      balls[firstBall] = tuple_last->bucket;
-
-      // Fix the heap ordering
-      pq.heapify_downwards(tuple_last->index);
-      //pq_min.heapify_downwards(tuple_last->index_min);
-      pq_min.heapify_downwards(0);
-
-      number_relocations++;
-  }
-}
-
-
-
-
-/////////////////////////////////////////////////////
-//relocate function, that mimics LRU without the heap
-/////////////////////////////////////////////////////
-
-void relocate_LRU_no_heap(bucket_tuple* tuple_ptr) {
-    uns64 index_in_heap = tuple_ptr->index;
-    uns64 buck_to_move = tuple_ptr->bucket;
-
-    bucket_tuple* tuple_last = bucket[0].at(1).tuple_ptr;
-    for (uns64 i = 1; i < NUM_BUCKETS; ++i) {
-      bucket_tuple* current_tuple = bucket[i].at(1).tuple_ptr;
-      if (current_tuple->access_count < tuple_last->access_count) {
-        tuple_last = current_tuple;
-      }
-    }
-    
-    if (tuple_last == nullptr) {
-      return;
-    }
-
-    if (tuple_last->count == SPILL_THRESHOLD) {
-      return;
-    }
-    
-    uns64 amount_to_relcoate = 0;
-    switch(CURR_NUM_WAYS) {
-      case 4:
-        amount_to_relcoate = get_number_to_relocate_4(tuple_last); 
-        break;
-      case 8:
-        amount_to_relcoate = get_number_to_relocate_8(tuple_last);
-        break;
-      case 16:
-        amount_to_relcoate = get_number_to_relocate_16(tuple_last);
-        break;
-      default:
-        break;
-    }
-
-
-    for (uns64 i = 0; i < amount_to_relcoate; ++i) {
-      //get the first ball in the bucket to remove
-      uns64 firstBall = tuple_ptr->ball_list.front();
-      //erase bucket at the front of the list 
-      tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin()); 
-
-      //decrement the count of the bucket that is being relocated from
-      tuple_ptr->count--;
-      bucket[buck_to_move].at(0).count--;
-      //heapify down to correct ordering as count is decreased
-      pq.heapify_downwards(index_in_heap);
-      //pq_min.heapify_downwards(tuple_ptr->index_min);
-      pq_min.heapify_downwards(0);
-
-      // Move the ball to the new bucket
-      tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
-      tuple_last->count++;
-      bucket[tuple_last->bucket].at(0).count++;
-      //this is the reason why I must keep track of the balls 
-      balls[firstBall] = tuple_last->bucket;
-
-      // Fix the heap ordering
-      pq.heapify_downwards(tuple_last->index);
-      //pq_min.heapify_downwards(tuple_last->index_min);
-      pq_min.heapify_downwards(0);
-
-      number_relocations++;
-  }
-}
-
-
-
-/////////////////////////////////////////////////////
-// low overhead relocate function 
-/////////////////////////////////////////////////////
-
-
-void relocate_low_overhead(bucket_tuple* tuple_ptr) {
-    uns64 index_in_heap = tuple_ptr->index;
-    uns64 buck_to_move = tuple_ptr->bucket;
-    bucket_tuple* tuple_last = nullptr;
-
-    //var to keep track of how many balls to relocate
-    uns64 amount_to_relcoate; 
-
-    //determine which bucket to relocate to based on the number of ways
-    switch(CURR_NUM_WAYS) {
-      case 4:
-        tuple_last = get_min_bucket_4ways();
-        if(tuple_last == nullptr) {
-          return;
-        }
-        amount_to_relcoate = get_number_to_relocate_4(tuple_last); 
-        break;
-      case 8:
-        tuple_last = get_min_bucket_8ways();
-        if(tuple_last == nullptr) {
-          return;
-        }
-        amount_to_relcoate = get_number_to_relocate_8(tuple_last);
-        break;
-      case 16:
-        tuple_last =get_min_bucket_16ways();
-        if(tuple_last == nullptr) {
-          return;
-        }
-        amount_to_relcoate = get_number_to_relocate_16(tuple_last);
-        break;
-      default:
-        break;
-    }
-
-
-    for (uns64 i = 0; i < amount_to_relcoate; ++i) {
-      //get the first ball in the bucket to remove
-      uns64 firstBall = tuple_ptr->ball_list.front();
-      //erase bucket at the front of the list 
-      tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin()); 
-
-      //decrement the count of the bucket that is being relocated from
-      tuple_ptr->count--;
-      bucket[buck_to_move].at(0).count--;
-      //heapify down to correct ordering as count is decreased
-      pq.heapify_downwards(index_in_heap);
-      //pq_min.heapify_downwards(tuple_ptr->index_min);
-      pq_min.heapify_downwards(0);
-
-      // Move the ball to the new bucket
-      tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
-      tuple_last->count++;
-      bucket[tuple_last->bucket].at(0).count++;
-      //this is the reason why I must keep track of the balls 
-      balls[firstBall] = tuple_last->bucket;
-
-      // Fix the heap ordering
-      pq.heapify_downwards(tuple_last->index);
-      //pq_min.heapify_downwards(tuple_last->index_min);
-      pq_min.heapify_downwards(0);
-
-      number_relocations++;
-  }
-  
-}
-
-
-/////////////////////////////////////////////////////
-//relocate function, that mimics LFU
-/////////////////////////////////////////////////////
-
-void relocate_LFU(bucket_tuple* tuple_ptr) {
-    uns64 index_in_heap = tuple_ptr->index;
-    uns64 buck_to_move = tuple_ptr->bucket;
-
-    bucket_tuple* tuple_last = pq.get_element(0);
-    for (uns64 i = 1; i < pq.size(); ++i) {
-      bucket_tuple* current_tuple = pq.get_element(i);
       if (current_tuple->frequency < tuple_last->frequency) {
         tuple_last = current_tuple;
       }
@@ -1972,93 +1079,8 @@ void relocate_LFU(bucket_tuple* tuple_ptr) {
   }
 }
 
+*/
 
-
-
-/////////////////////////////////////////////////////
-//relocate function, that mimics LFU, no heap
-/////////////////////////////////////////////////////
-
-void relocate_LFU_no_heap(bucket_tuple* tuple_ptr) {
-    uns64 index_in_heap = tuple_ptr->index;
-    uns64 buck_to_move = tuple_ptr->bucket;
-
-    bucket_tuple* tuple_last = bucket[0].at(1).tuple_ptr;
-    for (uns64 i = 1; i < NUM_BUCKETS; ++i) {
-      bucket_tuple* current_tuple = bucket[i].at(1).tuple_ptr;
-      if (current_tuple->frequency < tuple_last->frequency) {
-        tuple_last = current_tuple;
-      }
-    }
-    
-    if (tuple_last == nullptr) {
-      return;
-    }
-
-    if (tuple_last->count >= SPILL_THRESHOLD) {
-      return;
-    }
-
-
-    uns64 amount_to_relcoate = 0;
-    switch(CURR_NUM_WAYS) {
-      case 4:
-        amount_to_relcoate = get_number_to_relocate_4(tuple_last); 
-        break;
-      case 8:
-        amount_to_relcoate = get_number_to_relocate_8(tuple_last);
-        break;
-      case 16:
-        amount_to_relcoate = get_number_to_relocate_16(tuple_last);
-        break;
-      default:
-        break;
-    }
-    
-
-    for (uns64 i = 0; i < amount_to_relcoate; ++i) {
-
-      //get the first ball in the bucket to remove
-      uns64 firstBall = tuple_ptr->ball_list.front();
-      //erase bucket at the front of the list 
-      tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin()); 
-
-      //decrement the count of the bucket that is being relocated from
-      tuple_ptr->count--;
-      bucket[buck_to_move].at(0).count--;
-      //heapify down to correct ordering as count is decreased
-      pq.heapify_downwards(index_in_heap);
-      //pq_min.heapify_downwards(tuple_ptr->index_min);
-      pq_min.heapify_downwards(0);
-
-      // Move the ball to the new bucket
-      tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
-      tuple_last->count++;
-      bucket[tuple_last->bucket].at(0).count++;
-      tuple_last->frequency++;
-      //this is the reason why I must keep track of the balls 
-      balls[firstBall] = tuple_last->bucket;
-
-      // Fix the heap ordering
-      pq.heapify_downwards(tuple_last->index);
-      //pq_min.heapify_downwards(tuple_last->index_min);
-      pq_min.heapify_downwards(0);
-
-      number_relocations++;
-  }
-}
-
-
-/////////////////////////////////////////////////////
-/////////////////////////////////////////////////////
-void print_heap() {
-    cout << "Heap Elements: ";
-    for (uns64 i = 0; i < pq.size(); ++i) {
-        bucket_tuple* element = pq.get_element(i);
-        cout << "(" << element->count << ", " << element->bucket << ") " <<endl;
-    }
-    cout << endl;
-}
 
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
@@ -2087,7 +1109,7 @@ int main(int argc, char* argv[]){
   sanity_check();
 
   printf("Starting --  (Dot printed every 100M Ball throws) \n");
-  cout << "extra buck cap " << EXTRA_BUCKET_CAPACITY << endl;
+  cout << "Extra Tags Provisioned: " << EXTRA_BUCKET_CAPACITY << endl;
 
   //N Billion Ball Throws
   for (uns64 bn_i=0 ; bn_i < NUM_BILLION_TRIES; bn_i++) {    
@@ -2099,7 +1121,6 @@ int main(int argc, char* argv[]){
         remove_and_insert();      
       }
       printf(".");fflush(stdout);
-      cout << "Number of relocations: " << number_relocations << endl;
     }    
     //Ensure Total Balls in Buckets is Conserved.
     sanity_check();
