@@ -803,7 +803,6 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
       return;
     }
     
-
     //get the first ball in the bucket to remove
     uns64 firstBall = tuple_ptr->ball_list.front();
     //erase bucket at the front of the list 
