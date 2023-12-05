@@ -56,8 +56,8 @@ int SPILL_THRESHOLD = BALLS_PER_BUCKET + EXTRA_BUCKET_CAPACITY;
 
 //Experiment Size
 //#define BILLION_TRIES             (1000*1000*1000)
-#define BILLION_TRIES (1000*1000) //thus is 1 1 i tihnk 
-#define HUNDRED_MILLION_TRIES     (1000*1000) //for 4 ways use size 10*1000
+#define BILLION_TRIES (1000*1000*10)
+#define HUNDRED_MILLION_TRIES     (1000*1000)
 
 
 /////////////////////////////////////////////////////
@@ -95,22 +95,12 @@ union bucket_value {
 vector<bucket_value> bucket[NUM_BUCKETS];
 
 //function declarations
-void relocate(bucket_tuple* tuple_ptr);
-
 void relocate_LRU(bucket_tuple* tuple_ptr);
 
 void relocate_LFU(bucket_tuple* tuple_ptr);
 
 void relocate_min_heap(bucket_tuple* tuple_ptr);
 
-
-//experimental functions to compare perf without heap
-//only use when heap is not initialized
-void relocate_low_overhead(bucket_tuple* tuple_ptr);
-
-void relocate_LRU_no_heap(bucket_tuple* tuple_ptr);
-
-void relocate_LFU_no_heap(bucket_tuple* tuple_ptr);
 
 //For each Ball (Cache-Line), which Bucket (Set) it is in
 //(Data-Structure Similar to Data-Store RPTR)
@@ -237,6 +227,7 @@ private:
 };
 
 GriffinsAwesomeLFUQueue pq_lfu;
+
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
 //priority queue that is used to determine which 
@@ -443,8 +434,9 @@ void spill_ball(uns64 index, uns64 ballID){
   //reflect the pointer count to match the new count, this can just be a decremet, would probs be faster
   tuple_ptr->count--;
   //heapify up to correct ordering as count is decreased
-  //pq_min.heapify_upwards(tuple_ptr->index_min);
+  pq_min.heapify_upwards(tuple_ptr->index_min);
   //pq_lfu.heapify_upwards(tuple_ptr->index_lfu);
+  //pq_lru.heapify_upwards(tuple_ptr->index_lru);
 
   
   //remove inserted ball from bucket balls vector
@@ -492,7 +484,8 @@ void spill_ball(uns64 index, uns64 ballID){
       tuple_spill->ball_list.push_back(ballID);
       //heapify down to correct ordering as count is increased
       pq_min.heapify_downwards(tuple_spill->index_min);
-      pq_lfu.heapify_downwards(tuple_spill->index_lfu);
+      //pq_lfu.heapify_downwards(tuple_spill->index_lfu);
+      //pq_lru.heapify_downwards(tuple_spill->index_lru);
       
       //above are changes
       ////////////////////////////////////////////////////////////////
@@ -576,8 +569,8 @@ uns insert_ball(uns64 ballID){
   tuple_ptr->ball_list.push_back(ballID); //ball should be added to the bucket balls vector 
   //heapify down to correct ordering as count is increased 
   pq_min.heapify_downwards(tuple_ptr->index_min);
-  pq_lfu.heapify_downwards(tuple_ptr->index_lfu);
-  pq_lru.heapify_downwards(tuple_ptr->index_lru);
+  //pq_lfu.heapify_downwards(tuple_ptr->index_lfu);
+  //pq_lru.heapify_downwards(tuple_ptr->index_lru);
 
   uns64 bucket_id = tuple_ptr->bucket;
 
@@ -594,7 +587,7 @@ uns insert_ball(uns64 ballID){
   if(bucket[bucket_id].at(0).count > BALLS_PER_BUCKET){
     //relocate_LRU(tuple_ptr);
     //relocate_LFU(tuple_ptr);
-    //relocate_min_heap(tuple_ptr);
+    relocate_min_heap(tuple_ptr);
   }
 
   //above are changes
@@ -642,8 +635,8 @@ uns64 remove_ball(void){
   
   //pq.heapify_downwards(tuple_ptr->index);
   pq_min.heapify_upwards(tuple_ptr->index_min);
-  pq_lfu.heapify_upwards(tuple_ptr->index_lfu);
-  pq_lru.heapify_upwards(tuple_ptr->index_lru);
+  //pq_lfu.heapify_upwards(tuple_ptr->index_lfu);
+  //pq_lru.heapify_upwards(tuple_ptr->index_lru);
   
   //above are changes
   ////////////////////////////////////////////////////////////////
@@ -738,11 +731,10 @@ void init_buckets(void){
     //pq.push(mytuple);
     //add to min heap
     mytuple->index_lfu = 0;
-
     mytuple->index_lru = 0;
     pq_min.push(mytuple);
-    pq_lfu.push(mytuple);
-    pq_lru.push(mytuple);
+    //pq_lfu.push(mytuple);
+    //pq_lru.push(mytuple);
     //set the pointer to the tuple in the bucket
     bucket[ii].at(1).tuple_ptr = mytuple;
 
@@ -786,96 +778,6 @@ uns  remove_and_insert(void){
   }
 
   return res;
-}
-
-
-/////////////////////////////////////////////////////
-//get number of balls to relocate based on how many balls are in the bucket
-/////////////////////////////////////////////////////
-
-//detect how many balls to relocate based on how many balls are in the bucket, guesses for now, but work well
-uns64 get_number_to_relocate_16(bucket_tuple* tuple_ptr) 
-{
-  uns64 amount_to_relcoate = 0;
-  switch(tuple_ptr->count) {
-      case 0:
-      case 1:
-      case 2:
-      case 3:
-      case 4:
-      case 5:
-      case 6:
-      case 7:
-      case 8:
-        amount_to_relcoate = 3;
-        break;
-      case 9:
-      case 10:
-      case 11:
-        amount_to_relcoate = 2;
-        break;
-      case 12:  
-      case 13:
-      case 14:
-      case 15:
-        amount_to_relcoate = 1;
-        break;
-      default:
-        break;
-    }
-    return amount_to_relcoate;
-}
-
-
-uns64 get_number_to_relocate_8(bucket_tuple* tuple_ptr) 
-{
-  uns64 amount_to_relcoate; 
-  switch(tuple_ptr->count) {
-    case 0:
-    case 1:
-    case 2:
-    case 3:
-      amount_to_relcoate = 3;
-      break;
-    case 4:
-    case 5:
-    case 6:
-    case 7:
-      amount_to_relcoate = 1;
-      break;
-    case 8:
-    default:
-      amount_to_relcoate = 0;
-      break;
-  }
-  return amount_to_relcoate;
-}
-
-
-///////////////////////////////////////////////////////////////
-//get number of balls to relocate based on how many balls are in the bucket
-///////////////////////////////////////////////////////////////
-
-//detect how many balls to relocate based on how many balls are in the bucket, guesses for now, but work well
-uns64 get_number_to_relocate_4(bucket_tuple* tuple_ptr) 
-{
-  uns64 amount_to_relcoate = 0; 
-  switch(tuple_ptr->count) {
-      case 0:
-      case 1:
-        amount_to_relcoate = 3;
-        break;
-      case 2:
-        amount_to_relcoate = 2;
-        break;
-      case 3:
-        amount_to_relcoate = 1;
-        break;
-      case 4:
-      default:
-        break;
-    }
-  return amount_to_relcoate;
 }
 
 ////////////////////////////////////////////////////////////
