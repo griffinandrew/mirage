@@ -56,8 +56,8 @@ int SPILL_THRESHOLD = BALLS_PER_BUCKET + EXTRA_BUCKET_CAPACITY;
 
 //Experiment Size
 //#define BILLION_TRIES             (1000*1000*1000)
-#define BILLION_TRIES (1000*1000*10)
-#define HUNDRED_MILLION_TRIES     (1000*1000)
+#define BILLION_TRIES (1000*1000*1000)
+#define HUNDRED_MILLION_TRIES     (1000*1000*100)
 
 
 /////////////////////////////////////////////////////
@@ -99,7 +99,7 @@ void relocate_LRU(bucket_tuple* tuple_ptr);
 
 void relocate_LFU(bucket_tuple* tuple_ptr);
 
-void relocate_min_heap(bucket_tuple* tuple_ptr);
+void relocate_smart(bucket_tuple* tuple_ptr);
 
 
 //For each Ball (Cache-Line), which Bucket (Set) it is in
@@ -139,13 +139,19 @@ uns64 CURR_NUM_WAYS = 0;
 
 uns64 last_row_count_found = 0;
 
+
+
 /////////////////////////////////////////////////////
-// FUNCTIONS - Ball Insertion, Removal, Spill, etc.
 /////////////////////////////////////////////////////
+//priority queue that is used to determine which 
+//bucket to insert into based on LFU heuristic
+/////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
+
 
 class GriffinsAwesomeLFUQueue {
 public:
-  // Called when count is incremented.
+  // Called when count is decremented.
   void heapify_upwards(uns64 index) {
     if (index == 0) {
       return;
@@ -158,7 +164,7 @@ public:
     }
   }
 
-  // Called when count is decremented.
+  // Called when count is incremented.
   void heapify_downwards(uns64 index) {
     uns64 size = storage_lfu_.size();
     
@@ -217,8 +223,8 @@ public:
 private:
   void swap_elements(uns64 a, uns64 b) {
     if (a < storage_lfu_.size() && b < storage_lfu_.size()) {
-    std::swap(storage_lfu_[a], storage_lfu_[b]); //does this counts? no counts are the same
-    std::swap(storage_lfu_[a]->index_lfu, storage_lfu_[b]->index_lfu); //do i also need to swap counts? or no i dont think
+    std::swap(storage_lfu_[a], storage_lfu_[b]);
+    std::swap(storage_lfu_[a]->index_lfu, storage_lfu_[b]->index_lfu);
     }
   }
 
@@ -231,14 +237,14 @@ GriffinsAwesomeLFUQueue pq_lfu;
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
 //priority queue that is used to determine which 
-//bucket to insert into
+//bucket to insert into based on LRU heuristic
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
 
 
 class GriffinsAwesomeLRUQueue {
 public:
-  // Called when count is incremented.
+  // Called when count is decremented.
   void heapify_upwards(uns64 index) {
     if (index == 0) {
       return;
@@ -251,7 +257,7 @@ public:
     }
   }
 
-  // Called when count is decremented.
+  // Called when count is incremented.
   void heapify_downwards(uns64 index) {
     uns64 size = storage_lru_.size();
     
@@ -310,8 +316,8 @@ public:
 private:
   void swap_elements(uns64 a, uns64 b) {
     if (a < storage_lru_.size() && b < storage_lru_.size()) {
-    std::swap(storage_lru_[a], storage_lru_[b]); //does this counts? no counts are the same
-    std::swap(storage_lru_[a]->index_lru, storage_lru_[b]->index_lru); //do i also need to swap counts? or no i dont think
+    std::swap(storage_lru_[a], storage_lru_[b]);
+    std::swap(storage_lru_[a]->index_lru, storage_lru_[b]->index_lru);
     }
   }
 
@@ -321,17 +327,16 @@ private:
 
 GriffinsAwesomeLRUQueue pq_lru;
 
-
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
 //priority queue that is used to determine which 
-//bucket to insert into
+//bucket to insert into for min element bases relocation
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
 
 class GriffinsAwesomeMinQueue {
 public:
-  // Called when count is incremented.
+  // Called when count is decremented.
   void heapify_upwards(uns64 index) {
     if (index == 0) {
       return;
@@ -344,7 +349,7 @@ public:
     }
   }
 
-  // Called when count is decremented.
+  // Called when count is incremented.
   void heapify_downwards(uns64 index) {
     uns64 size = storage_min_.size();
     
@@ -403,8 +408,8 @@ public:
 private:
   void swap_elements(uns64 a, uns64 b) {
     if (a < storage_min_.size() && b < storage_min_.size()) {
-    std::swap(storage_min_[a], storage_min_[b]); //does this counts? no counts are the same
-    std::swap(storage_min_[a]->index_min, storage_min_[b]->index_min); //do i also need to swap counts? or no i dont think
+    std::swap(storage_min_[a], storage_min_[b]); 
+    std::swap(storage_min_[a]->index_min, storage_min_[b]->index_min); 
     }
   }
 
@@ -413,6 +418,18 @@ private:
 };
 
 GriffinsAwesomeMinQueue pq_min;
+
+
+
+/////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////
+// FUNCTIONS - Ball Insertion, Removal, Spill, etc.
+/////////////////////////////////////////////////////
 
 
 /////////////////////////////////////////////////////
@@ -587,7 +604,7 @@ uns insert_ball(uns64 ballID){
   if(bucket[bucket_id].at(0).count > BALLS_PER_BUCKET){
     //relocate_LRU(tuple_ptr);
     //relocate_LFU(tuple_ptr);
-    relocate_min_heap(tuple_ptr);
+    relocate_smart(tuple_ptr);
   }
 
   //above are changes
@@ -633,7 +650,6 @@ uns64 remove_ball(void){
   std::remove(tuple_ptr->ball_list.begin(), tuple_ptr->ball_list.end(), ballID),
   tuple_ptr->ball_list.end());
   
-  //pq.heapify_downwards(tuple_ptr->index);
   pq_min.heapify_upwards(tuple_ptr->index_min);
   //pq_lfu.heapify_upwards(tuple_ptr->index_lfu);
   //pq_lru.heapify_upwards(tuple_ptr->index_lru);
@@ -717,7 +733,7 @@ void init_buckets(void){
     bucket_value null_value = {0};
     bucket[ii].push_back(null_value);
     //now assign tuple
-    bucket_tuple* mytuple = new bucket_tuple(); //j, count);
+    bucket_tuple* mytuple = new bucket_tuple();
     mytuple->count = 0;
     //bucket is unqiue id for each bucket
     mytuple->bucket = ii; 
@@ -727,13 +743,15 @@ void init_buckets(void){
     mytuple->frequency = 0;
     //add index for min
     mytuple->index_min = 0;
-    //this heapfies and adds to heap
-    //pq.push(mytuple);
-    //add to min heap
+    //add index for lfu  
     mytuple->index_lfu = 0;
+    //add index for lru
     mytuple->index_lru = 0;
+    //add to min heap
     pq_min.push(mytuple);
+    //add to lfu heap
     //pq_lfu.push(mytuple);
+    //add to lru heap
     //pq_lru.push(mytuple);
     //set the pointer to the tuple in the bucket
     bucket[ii].at(1).tuple_ptr = mytuple;
@@ -753,7 +771,6 @@ void init_buckets(void){
 
   sanity_check();
   init_buckets_done = true;
-  printf("done init buckets\n");
 }
 
 
@@ -781,10 +798,11 @@ uns  remove_and_insert(void){
 }
 
 ////////////////////////////////////////////////////////////
-//ideal relocate function, that creates even distribution with min heap
+//ideal relocate function, that creates 
+//even distribution with min heap
 ////////////////////////////////////////////////////////////
 
-void relocate_min_heap(bucket_tuple* tuple_ptr) {
+void relocate_smart(bucket_tuple* tuple_ptr) {
     uns64 buck_to_move = tuple_ptr->bucket;
     bucket_tuple* tuple_last = nullptr;
 
@@ -832,7 +850,7 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
 }
 
 /////////////////////////////////////////////////////
-//relocate function, that mimics LRU
+//relocate function, that mimics LFU
 /////////////////////////////////////////////////////
 
 
@@ -846,7 +864,7 @@ void relocate_LFU(bucket_tuple* tuple_ptr) {
       return;
     }
 
-    if (tuple_last->count == BALLS_PER_BUCKET || tuple_last->count == SPILL_THRESHOLD) {
+    if (tuple_last->count >= BALLS_PER_BUCKET || tuple_last->count == SPILL_THRESHOLD) {
       return;
     }
 
@@ -878,7 +896,7 @@ void relocate_LFU(bucket_tuple* tuple_ptr) {
 
 
 /////////////////////////////////////////////////////
-//relocate function, that mimics LFU
+//relocate function, that mimics LRU
 /////////////////////////////////////////////////////
 
 
@@ -892,7 +910,7 @@ void relocate_LRU(bucket_tuple* tuple_ptr) {
       return;
     }
 
-    if (tuple_last->count == SPILL_THRESHOLD || tuple_last->count == BALLS_PER_BUCKET) {
+    if (tuple_last->count == SPILL_THRESHOLD || tuple_last->count >= BALLS_PER_BUCKET) {
       return;
     }
 
@@ -930,16 +948,13 @@ void relocate_LRU(bucket_tuple* tuple_ptr) {
 int main(int argc, char* argv[]){
 
   //Get arguments:
-  //assert((argc == 4) && "Need 3 arguments: (EXTRA_BUCKET_CAPACITY:[0-8] BN_BALL_THROWS:[1-10^5] SEED:[1-400])");
+  assert((argc == 5) && "Need 4 arguments: (EXTRA_BUCKET_CAPACITY:[0-8] BN_BALL_THROWS:[1-10^5] SEED:[1-400] NUM_WAYS:[4,8,16])");
   EXTRA_BUCKET_CAPACITY = atoi(argv[1]);
   SPILL_THRESHOLD = BASE_WAYS_PER_SKEW + EXTRA_BUCKET_CAPACITY;
   NUM_BILLION_TRIES  = atoi(argv[2]);
   myseed = atoi(argv[3]);
 
   CURR_NUM_WAYS = atoi(argv[4]);
-  std::cout << "CURR_NUM_WAYS " << CURR_NUM_WAYS << endl;
-
-
   printf("Cache Configuration: %d MB, %d skews, %d ways (%d ways/skew)\n",CACHE_SZ_BYTES/1024/1024,NUM_SKEWS,NUM_SKEWS*BASE_WAYS_PER_SKEW,BASE_WAYS_PER_SKEW);
   printf("AVG-BALLS-PER-BUCKET:%d, BUCKET-SPILL-THRESHOLD:%d \n",BASE_WAYS_PER_SKEW,SPILL_THRESHOLD);
   printf("Simulation Parameters - BALL_THROWS:%llu, SEED:%d\n\n",(unsigned long long)NUM_BILLION_TRIES*(unsigned long long)BILLION_TRIES,myseed);
