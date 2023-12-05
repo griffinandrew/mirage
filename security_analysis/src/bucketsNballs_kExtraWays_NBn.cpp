@@ -79,7 +79,6 @@ struct bucket_tuple {
   uns count; //amount of balls in bucket
   vector<uns64> ball_list;
   uns64 bucket; //bucket id
-  uns64 index; //current location in the max heap
   uns64 access_count; //number of times bucket has been accessed, used for LRU
   uns64 frequency; //number of times bucket has been accessed, used for LFU
   uns64 index_min; //current location in the min heap 
@@ -410,7 +409,6 @@ public:
     return val;
   }
 
-
 private:
   void swap_elements(uns64 a, uns64 b) {
     if (a < storage_min_.size() && b < storage_min_.size()) {
@@ -445,8 +443,8 @@ void spill_ball(uns64 index, uns64 ballID){
   //reflect the pointer count to match the new count, this can just be a decremet, would probs be faster
   tuple_ptr->count--;
   //heapify up to correct ordering as count is decreased
-  pq_min.heapify_upwards(tuple_ptr->index_min);
-  pq_lfu.heapify_upwards(tuple_ptr->index_lfu);
+  //pq_min.heapify_upwards(tuple_ptr->index_min);
+  //pq_lfu.heapify_upwards(tuple_ptr->index_lfu);
 
   
   //remove inserted ball from bucket balls vector
@@ -492,9 +490,7 @@ void spill_ball(uns64 index, uns64 ballID){
       tuple_spill->frequency++;
       //add ball to bucket balls vector
       tuple_spill->ball_list.push_back(ballID);
-      //heapify up to correct ordering as count is increased
-      //pq.heapify_upwards(tuple_spill->index);
-
+      //heapify down to correct ordering as count is increased
       pq_min.heapify_downwards(tuple_spill->index_min);
       pq_lfu.heapify_downwards(tuple_spill->index_lfu);
       
@@ -581,6 +577,7 @@ uns insert_ball(uns64 ballID){
   //heapify down to correct ordering as count is increased 
   pq_min.heapify_downwards(tuple_ptr->index_min);
   pq_lfu.heapify_downwards(tuple_ptr->index_lfu);
+  pq_lru.heapify_downwards(tuple_ptr->index_lru);
 
   uns64 bucket_id = tuple_ptr->bucket;
 
@@ -596,7 +593,7 @@ uns insert_ball(uns64 ballID){
 
   if(bucket[bucket_id].at(0).count > BALLS_PER_BUCKET){
     //relocate_LRU(tuple_ptr);
-    relocate_LFU(tuple_ptr);
+    //relocate_LFU(tuple_ptr);
     //relocate_min_heap(tuple_ptr);
   }
 
@@ -646,6 +643,7 @@ uns64 remove_ball(void){
   //pq.heapify_downwards(tuple_ptr->index);
   pq_min.heapify_upwards(tuple_ptr->index_min);
   pq_lfu.heapify_upwards(tuple_ptr->index_lfu);
+  pq_lru.heapify_upwards(tuple_ptr->index_lru);
   
   //above are changes
   ////////////////////////////////////////////////////////////////
@@ -728,8 +726,6 @@ void init_buckets(void){
     //now assign tuple
     bucket_tuple* mytuple = new bucket_tuple(); //j, count);
     mytuple->count = 0;
-    //set the index in the push operation in the heap
-    mytuple->index = 0;
     //bucket is unqiue id for each bucket
     mytuple->bucket = ii; 
     //add access counters
@@ -742,8 +738,11 @@ void init_buckets(void){
     //pq.push(mytuple);
     //add to min heap
     mytuple->index_lfu = 0;
+
+    mytuple->index_lru = 0;
     pq_min.push(mytuple);
     pq_lfu.push(mytuple);
+    pq_lru.push(mytuple);
     //set the pointer to the tuple in the bucket
     bucket[ii].at(1).tuple_ptr = mytuple;
 
@@ -867,12 +866,12 @@ uns64 get_number_to_relocate_4(bucket_tuple* tuple_ptr)
         amount_to_relcoate = 3;
         break;
       case 2:
-       amount_to_relcoate = 2;
+        amount_to_relcoate = 2;
         break;
       case 3:
-      case 4:
-       amount_to_relcoate = 1;
+        amount_to_relcoate = 1;
         break;
+      case 4:
       default:
         break;
     }
@@ -884,7 +883,6 @@ uns64 get_number_to_relocate_4(bucket_tuple* tuple_ptr)
 ////////////////////////////////////////////////////////////
 
 void relocate_min_heap(bucket_tuple* tuple_ptr) {
-    uns64 index_in_heap = tuple_ptr->index;
     uns64 buck_to_move = tuple_ptr->bucket;
     bucket_tuple* tuple_last = nullptr;
 
@@ -938,7 +936,6 @@ void relocate_min_heap(bucket_tuple* tuple_ptr) {
 
 
 void relocate_LFU(bucket_tuple* tuple_ptr) {
-    uns64 index_in_heap = tuple_ptr->index;
     uns64 buck_to_move = tuple_ptr->bucket;
 
     bucket_tuple* tuple_last = pq_lfu.top();
@@ -951,55 +948,30 @@ void relocate_LFU(bucket_tuple* tuple_ptr) {
     if (tuple_last->count == BALLS_PER_BUCKET || tuple_last->count == SPILL_THRESHOLD) {
       return;
     }
-    //cout << "tuple count" << tuple_ptr->count << endl;
-    
-    uns64 amount_to_relcoate = 1;
 
+    //get the first ball in the bucket to remove
+    uns64 firstBall = tuple_ptr->ball_list.front();
+    //erase bucket at the front of the list 
+    tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin()); 
 
-    
-    //uns64 amount_to_relcoate = 0;
-    switch(CURR_NUM_WAYS) {
-      case 4:
-        amount_to_relcoate = get_number_to_relocate_4(tuple_last); 
-        break;
-      case 8:
-        amount_to_relcoate = get_number_to_relocate_8(tuple_last);
-        break;
-      case 16:
-        amount_to_relcoate = get_number_to_relocate_16(tuple_last);
-        break;
-      default:
-        break;
-    }
-    
-    
+    //decrement the count of the bucket that is being relocated from
+    tuple_ptr->count--;
+    bucket[buck_to_move].at(0).count--;
 
+    pq_lfu.heapify_upwards(tuple_ptr->index_lfu);
 
-    for (uns64 i = 0; i < amount_to_relcoate; ++i) {
-      //get the first ball in the bucket to remove
-      uns64 firstBall = tuple_ptr->ball_list.front();
-      //erase bucket at the front of the list 
-      tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin()); 
+    // Move the ball to the new bucket
+    tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
+    tuple_last->count++;
+    bucket[tuple_last->bucket].at(0).count++;
+    tuple_last->frequency++;
+    //this is the reason why I must keep track of the balls 
+    balls[firstBall] = tuple_last->bucket;
 
-      //decrement the count of the bucket that is being relocated from
-      tuple_ptr->count--;
-      bucket[buck_to_move].at(0).count--;
+    // Fix the heap ordering
+    pq_lfu.heapify_downwards(tuple_last->index_lfu);
 
-      pq_lfu.heapify_upwards(tuple_ptr->index_lfu);
-
-      // Move the ball to the new bucket
-      tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
-      tuple_last->count++;
-      bucket[tuple_last->bucket].at(0).count++;
-      tuple_last->frequency++;
-      //this is the reason why I must keep track of the balls 
-      balls[firstBall] = tuple_last->bucket;
-
-      // Fix the heap ordering
-      pq_lfu.heapify_downwards(tuple_last->index_lfu);
-
-      number_relocations++;
-  }
+    number_relocations++;
 }
 
 
@@ -1009,77 +981,46 @@ void relocate_LFU(bucket_tuple* tuple_ptr) {
 /////////////////////////////////////////////////////
 
 
-/*
+
 void relocate_LRU(bucket_tuple* tuple_ptr) {
-    uns64 index_in_heap = tuple_ptr->index;
     uns64 buck_to_move = tuple_ptr->bucket;
 
-    bucket_tuple* tuple_last = pq.get_element(0);
-    for (uns64 i = 1; i < pq.size(); ++i) {
-      bucket_tuple* current_tuple = pq.get_element(i);
-      if (current_tuple->frequency < tuple_last->frequency) {
-        tuple_last = current_tuple;
-      }
-    }
+    bucket_tuple* tuple_last = pq_lru.top();
     
     if (tuple_last == nullptr) {
       return;
     }
 
-    if (tuple_last->count >= SPILL_THRESHOLD) {
+    if (tuple_last->count == SPILL_THRESHOLD || tuple_last->count == BALLS_PER_BUCKET) {
       return;
     }
 
+    //get the first ball in the bucket to remove
+    uns64 firstBall = tuple_ptr->ball_list.front();
+    //erase bucket at the front of the list 
+    tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin()); 
 
-    uns64 amount_to_relcoate = 0;
-    switch(CURR_NUM_WAYS) {
-      case 4:
-        amount_to_relcoate = get_number_to_relocate_4(tuple_last); 
-        break;
-      case 8:
-        amount_to_relcoate = get_number_to_relocate_8(tuple_last);
-        break;
-      case 16:
-        amount_to_relcoate = get_number_to_relocate_16(tuple_last);
-        break;
-      default:
-        break;
-    }
-    
+    //decrement the count of the bucket that is being relocated from
+    tuple_ptr->count--;
+    bucket[buck_to_move].at(0).count--;
+    //heapify up to correct ordering as count is decreased
+    pq_lru.heapify_upwards(tuple_ptr->index_lru);
 
-    for (uns64 i = 0; i < amount_to_relcoate; ++i) {
+    // Move the ball to the new bucket
+    tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
+    tuple_last->count++;
+    bucket[tuple_last->bucket].at(0).count++;
+    tuple_last->frequency++;
+    tuple_last->access_count = current_timestamp++;
+    //this is the reason why I must keep track of the balls 
+    balls[firstBall] = tuple_last->bucket;
 
-      //get the first ball in the bucket to remove
-      uns64 firstBall = tuple_ptr->ball_list.front();
-      //erase bucket at the front of the list 
-      tuple_ptr->ball_list.erase(tuple_ptr->ball_list.begin()); 
+    // Fix the heap ordering
+    pq_lru.heapify_upwards(tuple_last->index_lru);
 
-      //decrement the count of the bucket that is being relocated from
-      tuple_ptr->count--;
-      bucket[buck_to_move].at(0).count--;
-      //heapify down to correct ordering as count is decreased
-      pq.heapify_downwards(index_in_heap);
-      //pq_min.heapify_downwards(tuple_ptr->index_min);
-      pq_min.heapify_downwards(0);
-
-      // Move the ball to the new bucket
-      tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
-      tuple_last->count++;
-      bucket[tuple_last->bucket].at(0).count++;
-      tuple_last->frequency++;
-      //this is the reason why I must keep track of the balls 
-      balls[firstBall] = tuple_last->bucket;
-
-      // Fix the heap ordering
-      pq.heapify_downwards(tuple_last->index);
-      //pq_min.heapify_downwards(tuple_last->index_min);
-      pq_min.heapify_downwards(0);
-
-      number_relocations++;
-  }
+    number_relocations++;
+  
 }
-
-*/
 
 
 /////////////////////////////////////////////////////
@@ -1095,7 +1036,7 @@ int main(int argc, char* argv[]){
   myseed = atoi(argv[3]);
 
   CURR_NUM_WAYS = atoi(argv[4]);
-  cout << "CURR_NUM_WAYS " << CURR_NUM_WAYS << endl;
+  std::cout << "CURR_NUM_WAYS " << CURR_NUM_WAYS << endl;
 
 
   printf("Cache Configuration: %d MB, %d skews, %d ways (%d ways/skew)\n",CACHE_SZ_BYTES/1024/1024,NUM_SKEWS,NUM_SKEWS*BASE_WAYS_PER_SKEW,BASE_WAYS_PER_SKEW);
@@ -1109,7 +1050,7 @@ int main(int argc, char* argv[]){
   sanity_check();
 
   printf("Starting --  (Dot printed every 100M Ball throws) \n");
-  cout << "Extra Tags Provisioned: " << EXTRA_BUCKET_CAPACITY << endl;
+  std::cout << "Extra Tags Provisioned: " << EXTRA_BUCKET_CAPACITY << endl;
 
   //N Billion Ball Throws
   for (uns64 bn_i=0 ; bn_i < NUM_BILLION_TRIES; bn_i++) {    
@@ -1127,7 +1068,7 @@ int main(int argc, char* argv[]){
     //Print count of Balls Thrown.
     printf(" %llu\n",bn_i+1);fflush(stdout);    
   }
-  cout << number_relocations << endl;
+  std::cout << "Number of Relocations: "<< number_relocations << endl;
   
 
   printf("\n\nBucket-Occupancy Snapshot at End of Experiment\n");
