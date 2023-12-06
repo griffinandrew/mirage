@@ -234,6 +234,8 @@ private:
 };
 
 GriffinsAwesomeLFUQueue pq_lfu;
+GriffinsAwesomeLFUQueue pq_lfu_skew1;
+GriffinsAwesomeLFUQueue pq_lfu_skew2;
 
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
@@ -327,6 +329,8 @@ private:
 };
 
 GriffinsAwesomeLRUQueue pq_lru;
+GriffinsAwesomeLRUQueue pq_lru_skew1;
+GriffinsAwesomeLRUQueue pq_lru_skew2;
 
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
@@ -459,10 +463,13 @@ void spill_ball(uns64 index, uns64 ballID){
 
   if (tuple_ptr->skew_index == 0) {
     pq_min_skew1.heapify_upwards(tuple_ptr->index_min);
-
+    pq_lfu_skew1.heapify_upwards(tuple_ptr->index_lfu);
+    pq_lru_skew1.heapify_upwards(tuple_ptr->index_lru);
   }
   else {
     pq_min_skew2.heapify_upwards(tuple_ptr->index_min);
+    pq_lfu_skew2.heapify_upwards(tuple_ptr->index_lfu);
+    pq_lru_skew2.heapify_upwards(tuple_ptr->index_lru);
   }
 
   //cout << "here 1" << endl;
@@ -520,9 +527,13 @@ void spill_ball(uns64 index, uns64 ballID){
 
       if (tuple_spill->skew_index == 0) {
         pq_min_skew1.heapify_downwards(tuple_spill->index_min);
+        pq_lfu_skew1.heapify_downwards(tuple_spill->index_lfu);
+        pq_lru_skew1.heapify_downwards(tuple_spill->index_lru);
       }
       else {
         pq_min_skew2.heapify_downwards(tuple_spill->index_min);
+        pq_lfu_skew2.heapify_downwards(tuple_spill->index_lfu);
+        pq_lru_skew2.heapify_downwards(tuple_spill->index_lru);
       }
 
       //pq_min.heapify_downwards(tuple_spill->index_min);
@@ -556,11 +567,8 @@ uns insert_ball(uns64 ballID){
   //Index for Rand Bucket in Skew-1
   uns64 index2 = NUM_BUCKETS_PER_SKEW + mtrand->randInt(NUM_BUCKETS_PER_SKEW - 1);
 
-  //cout << "tuple idx 1 " << index1 << endl;
-  //cout << "tuple idx 2 " << index2 << endl;
   bucket_tuple* tuple_idx1 = bucket[index1].at(1).tuple_ptr;  
   bucket_tuple* tuple_idx2 = bucket[index2].at(1).tuple_ptr;
-  //cout << "pointer got" << endl;
 
   //Increments Tracking of Indexed Buckets
   if(init_buckets_done){
@@ -622,7 +630,6 @@ uns insert_ball(uns64 ballID){
   tuple_ptr->ball_list.push_back(ballID); //ball should be added to the bucket balls vector 
   //heapify down to correct ordering as count is increased 
 
-
   //cout << "about to heapify" << endl;
   if (tuple_ptr->skew_index == 0) {
     pq_min_skew1.heapify_downwards(tuple_ptr->index_min);
@@ -630,6 +637,7 @@ uns insert_ball(uns64 ballID){
   else {
     pq_min_skew2.heapify_downwards(tuple_ptr->index_min);
   }
+
   //cout << "done heapfiy" << endl;
 
   //pq_min.heapify_downwards(tuple_ptr->index_min);
@@ -648,21 +656,34 @@ uns insert_ball(uns64 ballID){
   ////////////////////////////////////////////////////////////////
   //below are changes
 
-  if(bucket[bucket_id].at(0).count > BALLS_PER_BUCKET){
+  //cout << index << endl;
+  //cout << bucket_id << endl;
+  assert(index == bucket_id);
+
+  assert(bucket[index].at(0).count == tuple_ptr->count);
+
+  //why is this bucket id?
+  //bc bucket id shold = idx, not true!!!!!!
+  //if(bucket[bucket_id].at(0).count > BALLS_PER_BUCKET){
+
+  if(bucket[index].at(0).count > BALLS_PER_BUCKET){
     //relocate_LRU(tuple_ptr);
     //relocate_LFU(tuple_ptr);
     relocate_smart(tuple_ptr);
+    //cout << "tup count" << tuple_ptr->count << endl;
   }
 
   //above are changes
   ////////////////////////////////////////////////////////////////
 
 
-
+  //cout << "tup count before spill" << tuple_ptr->count << endl;
   //----------- SPILL --------
   if(SPILL_THRESHOLD && (retval >= SPILL_THRESHOLD)){
     //cout << "spill" << endl;
     //Overwrite balls[ballID] with spill_index.
+    //cout << "tup count in spill" << tuple_ptr->count << endl;
+    //assert(tuple_ptr->count == SPILL_THRESHOLD);
     spill_ball(index,ballID); 
   }
 
@@ -841,7 +862,7 @@ void init_buckets(void){
     bucket_tuple* mytuple = new bucket_tuple();
     mytuple->count = 0;
     //bucket is unqiue id for each bucket
-    mytuple->bucket = ii; 
+    mytuple->bucket = ii + NUM_BUCKETS_PER_SKEW; 
     //add access counters
     mytuple->access_count = 0;
     //add frequency counters
@@ -938,12 +959,20 @@ void relocate_smart(bucket_tuple* tuple_ptr) {
       tuple_last = pq_min_skew2.top();
     }
 
-
     //tuple_last = pq_min.top();
         
     if(tuple_last == nullptr) {
       return;
     }
+
+    if(tuple_last->count >= SPILL_THRESHOLD-1) {
+
+      return;
+    }
+
+    assert(tuple_last->count != SPILL_THRESHOLD);
+    //cout << "tuple last count " << tuple_last->count << endl;
+
     
     //get the first ball in the bucket to remove
     uns64 firstBall = tuple_ptr->ball_list.front();
@@ -952,7 +981,7 @@ void relocate_smart(bucket_tuple* tuple_ptr) {
 
     //decrement the count of the bucket that is being relocated from
     tuple_ptr->count--;
-    bucket[buck_to_move].at(0).count--;
+    bucket[tuple_ptr->bucket].at(0).count--;
 
 
     if (tuple_ptr->skew_index == 0) {
@@ -971,6 +1000,7 @@ void relocate_smart(bucket_tuple* tuple_ptr) {
     bucket[tuple_last->bucket].at(0).count++;
     //this is the reason why I must keep track of the balls 
     balls[firstBall] = tuple_last->bucket;
+    assert(tuple_last->count != SPILL_THRESHOLD);
 
 
    ///////////////////////////////////////
@@ -981,6 +1011,7 @@ void relocate_smart(bucket_tuple* tuple_ptr) {
     else {
       pq_min_skew2.heapify_downwards(tuple_last->index_min);
     }
+
 
     //pq_min.heapify_downwards(tuple_last->index_min);
 
