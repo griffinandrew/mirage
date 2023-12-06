@@ -658,15 +658,10 @@ uns insert_ball(uns64 ballID){
 
   assert(bucket[index].at(0).count == tuple_ptr->count);
 
-  //why is this bucket id?
-  //bc bucket id shold = id
-  //if(bucket[bucket_id].at(0).count > BALLS_PER_BUCKET){
-
   if(bucket[index].at(0).count > BALLS_PER_BUCKET){
-    //relocate_LRU(tuple_ptr);
-    relocate_LFU(tuple_ptr);
+    relocate_LRU(tuple_ptr);
+    //relocate_LFU(tuple_ptr);
     //relocate_smart(tuple_ptr);
-    //cout << "tup count" << tuple_ptr->count << endl;
   }
 
   //above are changes
@@ -1094,7 +1089,16 @@ void relocate_LFU(bucket_tuple* tuple_ptr) {
 void relocate_LRU(bucket_tuple* tuple_ptr) {
     uns64 buck_to_move = tuple_ptr->bucket;
 
-    bucket_tuple* tuple_last = pq_lru.top();
+    //bucket_tuple* tuple_last = pq_lru.top();
+
+    bucket_tuple* tuple_last = nullptr;
+
+    if(tuple_ptr->skew_index == 0) {
+      tuple_last = pq_lru_skew1.top();
+    }
+    else {
+      tuple_last = pq_lru_skew2.top();
+    }
     
     if (tuple_last == nullptr) {
       return;
@@ -1113,7 +1117,14 @@ void relocate_LRU(bucket_tuple* tuple_ptr) {
     tuple_ptr->count--;
     bucket[buck_to_move].at(0).count--;
     //heapify up to correct ordering as count is decreased
-    pq_lru.heapify_upwards(tuple_ptr->index_lru);
+    if(tuple_ptr->skew_index == 0) {
+      pq_lru_skew1.heapify_upwards(tuple_ptr->index_lru);
+    }
+    else {
+      pq_lru_skew2.heapify_upwards(tuple_ptr->index_lru);
+    }
+
+    //pq_lru.heapify_upwards(tuple_ptr->index_lru);
 
     // Move the ball to the new bucket
     tuple_last->ball_list.push_back(firstBall); //add ball to less used cache line??
@@ -1125,7 +1136,13 @@ void relocate_LRU(bucket_tuple* tuple_ptr) {
     balls[firstBall] = tuple_last->bucket;
 
     // Fix the heap ordering
-    pq_lru.heapify_upwards(tuple_last->index_lru);
+    //pq_lru.heapify_upwards(tuple_last->index_lru);
+    if(tuple_last->skew_index == 0) {
+      pq_lru_skew1.heapify_upwards(tuple_last->index_lru);
+    }
+    else {
+      pq_lru_skew2.heapify_upwards(tuple_last->index_lru);
+    }
 
     number_relocations++;
   
