@@ -85,6 +85,7 @@ struct bucket_tuple {
   uns64 index_lfu; //current location in the lfu heap
   uns64 index_lru; //current location in the lru heap
   uns64 skew_index; //skew index
+  uns64 index_max; //max heap index
 };
 
 union bucket_value {
@@ -429,6 +430,95 @@ GriffinsAwesomeMinQueue pq_min_skew2;
 
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
+
+class GriffinsAwesomeMaxQueue {
+public:
+  // Called when count is decremented.
+  void heapify_upwards(uns64 index) {
+    if (index == 0) {
+      return;
+    }
+
+    uns64 parent_index = (index - 1) / 2;
+    if (storage_max_[index]->count > storage_max_[parent_index]->count) {
+      swap_elements(index, parent_index);
+      heapify_upwards(parent_index);
+    }
+  }
+
+  // Called when count is incremented.
+  void heapify_downwards(uns64 index) {
+    uns64 size = storage_max_.size();
+    
+    uns64 max = index;
+    uns64 left_index = 2 * index + 1;
+    uns64 right_index = 2 * index + 2;
+
+    if (left_index < size && storage_max_[left_index]->count > storage_max_[max]->count) {
+      max = left_index;
+    }
+
+    if (right_index < size && storage_max_[right_index]->count > storage_max_[max]->count) {
+      max = right_index;
+    }
+    
+    if (max != index) {
+      swap_elements(index, max);
+      heapify_downwards(max);
+    }
+  }
+
+  bucket_tuple *top() const {
+    if(storage_max_.size() == 0){
+      return nullptr;
+    }
+    return storage_max_[0];
+  }
+
+  void pop() {
+    uns64 size = storage_max_.size();
+    if (size == 0) {
+      return;
+    }
+    swap_elements(0, size - 1);
+    storage_max_.pop_back();
+    heapify_downwards(0);
+  }
+
+  void push(bucket_tuple* element) {
+    storage_max_.push_back(element);
+    element->index_max = storage_max_.size() - 1;
+    heapify_upwards(element->index_max);
+  }
+
+  uns64 size(void) {
+    uns64 size = storage_max_.size();
+    return size;
+  }
+
+  bucket_tuple* get_element(uns64 index) {
+    bucket_tuple* val = storage_max_[index];
+    return val;
+  }
+
+
+private:
+  void swap_elements(uns64 a, uns64 b) {
+    if (a < storage_max_.size() && b < storage_max_.size()) {
+    std::swap(storage_max_[a], storage_max_[b]);
+    std::swap(storage_max_[a]->index_max, storage_max_[b]->index_max);
+    }
+  }
+
+private:
+  vector<bucket_tuple*> storage_max_;
+};
+
+GriffinsAwesomeMaxQueue pq_max;
+GriffinsAwesomeMaxQueue pq_max_skew1;
+GriffinsAwesomeMaxQueue pq_max_skew2;
+
+
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
 
@@ -789,7 +879,43 @@ void init_buckets(void){
   assert(NUM_SKEWS * NUM_BUCKETS_PER_SKEW == NUM_BUCKETS);
   
   //Initialize Buckets with correct data structures
+
+
+  for(ii=0; ii<NUM_BUCKETS; ii++){
+    bucket_value count_value = {0};
+    bucket[ii].push_back(count_value);
+    bucket_value null_value = {0};
+    bucket[ii].push_back(null_value);
+
+    //now assign tuple
+    bucket_tuple* mytuple = new bucket_tuple();
+    mytuple->count = 0;
+    //bucket is unqiue id for each bucket
+    mytuple->bucket = ii;
+    //add access counters
+    mytuple->access_count = 0;
+    //add frequency counters
+    mytuple->frequency = 0;
+    //add index for min
+    mytuple->index_min = 0;
+    //add index for lfu
+    mytuple->index_lfu = 0;
+    //add index for lru
+    mytuple->index_lru = 0;
+    //add index for max
+    mytuple->index_max = 0;
+    //add skew index
+    //mytuple->skew_index = 0;
+    //add to max heap
+    pq_max.push(mytuple);
+    //assign pointer 
+    bucket[ii].at(1).tuple_ptr = mytuple;
+  }
   
+  
+
+
+  /*
   //skew 1
   uns64 last = 0;
   for(ii=0; ii<NUM_BUCKETS_PER_SKEW; ii++){
@@ -884,6 +1010,8 @@ void init_buckets(void){
     //above are changes
     /////////////////////////////////////////////////
   }
+
+  */
 
   //assert(last_2 == NUM_BUCKETS);
 
