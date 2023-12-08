@@ -56,8 +56,8 @@ int SPILL_THRESHOLD = BALLS_PER_BUCKET + EXTRA_BUCKET_CAPACITY;
 
 //Experiment Size
 //#define BILLION_TRIES             (1000*1000*1000)
-#define BILLION_TRIES (1000*1000*1000)
-#define HUNDRED_MILLION_TRIES     (1000*1000*100)
+#define BILLION_TRIES (1000*1000*10)
+#define HUNDRED_MILLION_TRIES     (1000*1000*1)
 
 
 /////////////////////////////////////////////////////
@@ -102,6 +102,8 @@ void relocate_LRU(bucket_tuple* tuple_ptr);
 void relocate_LFU(bucket_tuple* tuple_ptr);
 
 void relocate_smart(bucket_tuple* tuple_ptr);
+
+void relocate_max_heap (void);
 
 
 //For each Ball (Cache-Line), which Bucket (Set) it is in
@@ -515,6 +517,7 @@ private:
 };
 
 GriffinsAwesomeMaxQueue pq_max;
+
 GriffinsAwesomeMaxQueue pq_max_skew1;
 GriffinsAwesomeMaxQueue pq_max_skew2;
 
@@ -551,6 +554,8 @@ void spill_ball(uns64 index, uns64 ballID){
   
   //cout << "here" << endl;
 
+  /*
+
   if (tuple_ptr->skew_index == 0) {
     pq_min_skew1.heapify_upwards(tuple_ptr->index_min);
     pq_lfu_skew1.heapify_upwards(tuple_ptr->index_lfu);
@@ -561,10 +566,11 @@ void spill_ball(uns64 index, uns64 ballID){
     pq_lfu_skew2.heapify_upwards(tuple_ptr->index_lfu);
     pq_lru_skew2.heapify_upwards(tuple_ptr->index_lru);
   }
+  */
 
   //cout << "here 1" << endl;
 
-
+  pq_max.heapify_downwards(tuple_ptr->index_max);
   //pq_min.heapify_upwards(tuple_ptr->index_min);
   //pq_lfu.heapify_upwards(tuple_ptr->index_lfu);
   //pq_lru.heapify_upwards(tuple_ptr->index_lru);
@@ -615,6 +621,8 @@ void spill_ball(uns64 index, uns64 ballID){
       tuple_spill->ball_list.push_back(ballID);
       //heapify down to correct ordering as count is increased
 
+
+      /*
       if (tuple_spill->skew_index == 0) {
         pq_min_skew1.heapify_downwards(tuple_spill->index_min);
         pq_lfu_skew1.heapify_downwards(tuple_spill->index_lfu);
@@ -625,8 +633,11 @@ void spill_ball(uns64 index, uns64 ballID){
         pq_lfu_skew2.heapify_downwards(tuple_spill->index_lfu);
         pq_lru_skew2.heapify_downwards(tuple_spill->index_lru);
       }
+      */
 
-      //pq_min.heapify_downwards(tuple_spill->index_min);
+
+      pq_max.heapify_upwards(tuple_spill->index_max);
+     //pq_min.heapify_downwards(tuple_spill->index_min);
       //pq_lfu.heapify_downwards(tuple_spill->index_lfu);
       //pq_lru.heapify_downwards(tuple_spill->index_lru);
       
@@ -664,6 +675,7 @@ uns insert_ball(uns64 ballID){
   if(init_buckets_done){
     bucket_fill_observed[bucket[index1].at(0).count]++;
     bucket_fill_observed[bucket[index2].at(0).count]++;
+    relocate_max_heap();
   }
     
   uns64 index;
@@ -716,6 +728,8 @@ uns insert_ball(uns64 ballID){
   tuple_ptr->ball_list.push_back(ballID); //ball should be added to the bucket balls vector 
   //heapify down to correct ordering as count is increased 
 
+
+  /*
   if (tuple_ptr->skew_index == 0) {
     pq_min_skew1.heapify_downwards(tuple_ptr->index_min);
     pq_lfu_skew1.heapify_downwards(tuple_ptr->index_lfu);
@@ -726,8 +740,9 @@ uns insert_ball(uns64 ballID){
     pq_lfu_skew2.heapify_downwards(tuple_ptr->index_lfu);
     pq_lru_skew2.heapify_downwards(tuple_ptr->index_lru);
   }
+  */
 
-
+  pq_max.heapify_upwards(tuple_ptr->index_max);
   //pq_min.heapify_downwards(tuple_ptr->index_min);
   //pq_lfu.heapify_downwards(tuple_ptr->index_lfu);
   //pq_lru.heapify_downwards(tuple_ptr->index_lru);
@@ -797,6 +812,7 @@ uns64 remove_ball(void){
   std::remove(tuple_ptr->ball_list.begin(), tuple_ptr->ball_list.end(), ballID),
   tuple_ptr->ball_list.end());
 
+  /*
   if (tuple_ptr->skew_index == 0) {
     pq_min_skew1.heapify_upwards(tuple_ptr->index_min);
     pq_lfu_skew1.heapify_upwards(tuple_ptr->index_lfu);
@@ -808,7 +824,9 @@ uns64 remove_ball(void){
     pq_lfu_skew2.heapify_upwards(tuple_ptr->index_lfu);
     pq_lru_skew2.heapify_upwards(tuple_ptr->index_lru);
   }
-  
+  */
+
+  pq_max.heapify_downwards(tuple_ptr->index_max);
   //pq_min.heapify_upwards(tuple_ptr->index_min);
   //pq_lfu.heapify_upwards(tuple_ptr->index_lfu);
   //pq_lru.heapify_upwards(tuple_ptr->index_lru);
@@ -911,6 +929,8 @@ void init_buckets(void){
     //assign pointer 
     bucket[ii].at(1).tuple_ptr = mytuple;
   }
+
+  cout << "init " << endl;
   
   
 
@@ -1024,14 +1044,14 @@ void init_buckets(void){
     balls[ii] = -1;
     insert_ball(ii);
   }
-  //cout << "insert balls done" << endl;
+  cout << "insert balls done" << endl;
 
   for(ii=0; ii<=MAX_FILL; ii++){
     stat_counts[ii]=0;
   }
 
   sanity_check();
-  //cout << "sanity check done" << endl;
+  cout << "sanity check done" << endl;
   init_buckets_done = true;
 }
 
@@ -1276,10 +1296,116 @@ void relocate_LRU(bucket_tuple* tuple_ptr) {
   
 }
 
+/////////////////////////////////////////////////////
+uns64 get_number_to_relocate_8(bucket_tuple* tuple_ptr) 
+{
+  uns64 amount_to_relcoate; 
+  switch(tuple_ptr->count) {
+    case 0:
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+    case 5:
+      amount_to_relcoate = 1;
+      break;
+    case 6:
+    case 7:
+    case 8:
+      amount_to_relcoate = 2;
+      break;
+    case 9:
+      amount_to_relcoate = 3;
+      break;
+    default:
+      amount_to_relcoate = 0;
+      break;
+  }
+  return amount_to_relcoate;
+}
+
+
+
+/////////////////////////////////////////////////////
+
+void relocate_max_heap (void) {
+  
+  bucket_tuple* tuple_top = pq_max.top();
+
+  //cout << "top got" << endl;
+  //cout << tuple_top->count << endl;
+
+  //if (tuple_top->count <= BALLS_PER_BUCKET) {
+  //  return;
+  //}//
+
+  if (tuple_top == nullptr || tuple_top->count == 0 || tuple_top->count ==1) {
+    return;
+  }
+
+  //uns amount_to_relocate = get_number_to_relocate_8(tuple_top);
+  uns amount_to_relocate = 1;
+
+
+
+  uns64 index = tuple_top->bucket;
+  uns64 spill_index; 
+  
+  //for(int ii=0; ii<amount_to_relocate; ii++) {
+    uns done = 0;
+
+    while(done != 1) {
+
+      if(index < NUM_BUCKETS_PER_SKEW)
+        spill_index = NUM_BUCKETS_PER_SKEW + mtrand->randInt(NUM_BUCKETS_PER_SKEW-1);
+      else
+        spill_index = mtrand->randInt(NUM_BUCKETS_PER_SKEW-1);
+
+      if(bucket[spill_index].at(0).count < SPILL_THRESHOLD){
+        done = 1; 
+        //remove ball and to spill index
+
+        uns64 ballID = tuple_top->ball_list.front();
+
+        tuple_top->ball_list.erase(tuple_top->ball_list.begin());
+
+        tuple_top->count--;
+        bucket[index].at(0).count--;
+        pq_max.heapify_downwards(tuple_top->index_max); 
+
+
+        //now mv ball to spill index aka new bucket
+
+        bucket_tuple* insert_buck = bucket[spill_index].at(1).tuple_ptr;
+        
+        insert_buck->ball_list.push_back(ballID);
+        insert_buck->count++;
+        bucket[spill_index].at(0).count++;
+        insert_buck->access_count = current_timestamp++;
+        insert_buck->frequency++;
+        balls[ballID] = spill_index;
+        pq_max.heapify_upwards(insert_buck->index_max);
+
+      }
+      else 
+      {
+        done = 1; // idk exit anyway???
+        //index = spill_index;
+        //return;
+        //cout << "nothing happened" << endl;
+      }
+    }
+
+  //}
+
+}
+
+
+
+
 
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
-
 int main(int argc, char* argv[]){
 
   //Get arguments:
