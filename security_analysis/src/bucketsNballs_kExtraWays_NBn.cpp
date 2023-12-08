@@ -1344,7 +1344,7 @@ void relocate_max_heap (void) {
   }
 
   //uns amount_to_relocate = get_number_to_relocate_8(tuple_top);
-  uns amount_to_relocate = 1;
+  //uns amount_to_relocate = 1;
 
 
 
@@ -1389,7 +1389,7 @@ void relocate_max_heap (void) {
       }
       else 
       {
-        done = 1; // idk exit anyway???
+        //done = 1; // idk exit anyway???
         //index = spill_index;
         //return;
         //cout << "nothing happened" << endl;
