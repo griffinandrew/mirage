@@ -56,8 +56,8 @@ int SPILL_THRESHOLD = BALLS_PER_BUCKET + EXTRA_BUCKET_CAPACITY;
 
 //Experiment Size
 //#define BILLION_TRIES             (1000*1000*1000)
-#define BILLION_TRIES (1000*1000*10)
-#define HUNDRED_MILLION_TRIES     (1000*1000*1)
+#define BILLION_TRIES (1000*1000*100)
+#define HUNDRED_MILLION_TRIES     (1000*1000*10)
 
 
 /////////////////////////////////////////////////////
@@ -103,7 +103,9 @@ void relocate_LFU(bucket_tuple* tuple_ptr);
 
 void relocate_smart(bucket_tuple* tuple_ptr);
 
-void relocate_max_heap (void);
+void relocate_max_heap(void);
+
+void relocate_mfu(void); 
 
 
 //For each Ball (Cache-Line), which Bucket (Set) it is in
@@ -239,6 +241,98 @@ private:
 GriffinsAwesomeLFUQueue pq_lfu;
 GriffinsAwesomeLFUQueue pq_lfu_skew1;
 GriffinsAwesomeLFUQueue pq_lfu_skew2;
+
+
+
+/////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////
+
+
+class GriffinsAwesomeMFUQueue {
+public:
+  // Called when count is decremented.
+  void heapify_upwards(uns64 index) {
+    if (index == 0) {
+      return;
+    }
+
+    uns64 parent_index = (index - 1) / 2;
+    if (storage_mfu_[index]->frequency > storage_mfu_[parent_index]->frequency) {
+      swap_elements(index, parent_index);
+      heapify_upwards(parent_index);
+    }
+  }
+
+  // Called when count is incremented.
+  void heapify_downwards(uns64 index) {
+    uns64 size = storage_mfu_.size();
+    
+    uns64 max = index;
+    uns64 left_index = 2 * index + 1;
+    uns64 right_index = 2 * index + 2;
+
+    if (left_index < size && storage_mfu_[left_index]->frequency > storage_mfu_[max]->frequency) {
+      max = left_index;
+    }
+
+    if (right_index < size && storage_mfu_[right_index]->frequency > storage_mfu_[max]->frequency) {
+      max = right_index;
+    }
+    
+    if (max != index) {
+      swap_elements(index, max);
+      heapify_downwards(max);
+    }
+  }
+
+  bucket_tuple *top() const {
+    if(storage_mfu_.size() == 0){
+      return nullptr;
+    }
+    return storage_mfu_[0];
+  }
+
+  void pop() {
+    uns64 size = storage_mfu_.size();
+    if (size == 0) {
+      return;
+    }
+    swap_elements(0, size - 1);
+    storage_mfu_.pop_back();
+    heapify_downwards(0);
+  }
+
+  void push(bucket_tuple* element) {
+    storage_mfu_.push_back(element);
+    //just use the lfu index for now
+    element->index_lfu = storage_mfu_.size() - 1;
+    heapify_upwards(element->index_lfu);
+  }
+
+  uns64 size(void) {
+    uns64 size = storage_mfu_.size();
+    return size;
+  }
+
+  bucket_tuple* get_element(uns64 index) {
+    bucket_tuple* val = storage_mfu_[index];
+    return val;
+  }
+
+
+private:
+  void swap_elements(uns64 a, uns64 b) {
+    if (a < storage_mfu_.size() && b < storage_mfu_.size()) {
+    std::swap(storage_mfu_[a], storage_mfu_[b]);
+    std::swap(storage_mfu_[a]->index_lfu, storage_mfu_[b]->index_lfu);
+    }
+  }
+
+private:
+  vector<bucket_tuple*> storage_mfu_;
+};
+
+GriffinsAwesomeMFUQueue pq_mfu;
 
 /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////
@@ -571,6 +665,7 @@ void spill_ball(uns64 index, uns64 ballID){
   //cout << "here 1" << endl;
 
   pq_max.heapify_downwards(tuple_ptr->index_max);
+  pq_mfu.heapify_downwards(tuple_ptr->index_lfu);
   //pq_min.heapify_upwards(tuple_ptr->index_min);
   //pq_lfu.heapify_upwards(tuple_ptr->index_lfu);
   //pq_lru.heapify_upwards(tuple_ptr->index_lru);
@@ -637,6 +732,7 @@ void spill_ball(uns64 index, uns64 ballID){
 
 
       pq_max.heapify_upwards(tuple_spill->index_max);
+      pq_mfu.heapify_upwards(tuple_spill->index_lfu);
      //pq_min.heapify_downwards(tuple_spill->index_min);
       //pq_lfu.heapify_downwards(tuple_spill->index_lfu);
       //pq_lru.heapify_downwards(tuple_spill->index_lru);
@@ -675,9 +771,11 @@ uns insert_ball(uns64 ballID){
   if(init_buckets_done){
     bucket_fill_observed[bucket[index1].at(0).count]++;
     bucket_fill_observed[bucket[index2].at(0).count]++;
-    relocate_max_heap();
   }
-    
+
+  //relocate_max_heap();
+  relocate_mfu();
+
   uns64 index;
   uns retval;
 
@@ -743,6 +841,7 @@ uns insert_ball(uns64 ballID){
   */
 
   pq_max.heapify_upwards(tuple_ptr->index_max);
+  pq_mfu.heapify_upwards(tuple_ptr->index_lfu);
   //pq_min.heapify_downwards(tuple_ptr->index_min);
   //pq_lfu.heapify_downwards(tuple_ptr->index_lfu);
   //pq_lru.heapify_downwards(tuple_ptr->index_lru);
@@ -763,11 +862,11 @@ uns insert_ball(uns64 ballID){
 
   assert(bucket[index].at(0).count == tuple_ptr->count);
 
-  if(bucket[index].at(0).count > BALLS_PER_BUCKET){
+  //if(bucket[index].at(0).count > BALLS_PER_BUCKET){
     //relocate_LRU(tuple_ptr);
     //relocate_LFU(tuple_ptr);
     //relocate_smart(tuple_ptr);
-  }
+  //}
 
   //above are changes
   ////////////////////////////////////////////////////////////////
@@ -827,6 +926,7 @@ uns64 remove_ball(void){
   */
 
   pq_max.heapify_downwards(tuple_ptr->index_max);
+  pq_mfu.heapify_downwards(tuple_ptr->index_lfu);
   //pq_min.heapify_upwards(tuple_ptr->index_min);
   //pq_lfu.heapify_upwards(tuple_ptr->index_lfu);
   //pq_lru.heapify_upwards(tuple_ptr->index_lru);
@@ -926,15 +1026,14 @@ void init_buckets(void){
     //mytuple->skew_index = 0;
     //add to max heap
     pq_max.push(mytuple);
+    pq_mfu.push(mytuple);
     //assign pointer 
     bucket[ii].at(1).tuple_ptr = mytuple;
   }
-
+  
   cout << "init " << endl;
   
   
-
-
   /*
   //skew 1
   uns64 last = 0;
@@ -1339,6 +1438,12 @@ void relocate_max_heap (void) {
   //  return;
   //}//
 
+  /*
+  if (pq_max.size() <= 2){
+    return;
+  }
+  */
+
   if (tuple_top == nullptr || tuple_top->count == 0 || tuple_top->count ==1) {
     return;
   }
@@ -1387,19 +1492,103 @@ void relocate_max_heap (void) {
         pq_max.heapify_upwards(insert_buck->index_max);
 
       }
-      else 
-      {
-        //done = 1; // idk exit anyway???
-        //index = spill_index;
-        //return;
-        //cout << "nothing happened" << endl;
-      }
     }
+    number_relocations++;
 
   //}
-
 }
 
+
+/////////////////////////////////////////////////////
+////////////////////////////////////////////////////
+
+
+void relocate_mfu (void) {
+  
+  bucket_tuple* tuple_top = pq_mfu.top();
+
+  //cout << "top got" << endl;
+  //cout << tuple_top->count << endl;
+
+  //if (tuple_top->count <= BALLS_PER_BUCKET) {
+  //  return;
+  //}//
+
+  /*
+  if (pq_max.size() <= 2){
+    return;
+  }
+  */
+
+  bucket_tuple* tuple_last = pq_mfu.top();
+  for(uns ii=0; ii<NUM_BUCKETS; ii++) {
+    if (tuple_last->frequency < bucket[ii].at(1).tuple_ptr->frequency) {
+      tuple_last = bucket[ii].at(1).tuple_ptr;
+    }
+  }
+  assert(tuple_last->frequency == pq_mfu.top()->frequency);
+
+
+
+
+  if (tuple_top == nullptr || tuple_top->count == 0 || tuple_top->count ==1) {
+    return;
+  }
+
+  uns amount_to_relocate = get_number_to_relocate_8(tuple_top);
+  //uns amount_to_relocate = 1;
+  cout << "amount to relocate " << amount_to_relocate << endl;
+  cout << "tuple top count " << tuple_top->count << endl;
+  cout << "tuple top bucket " << tuple_top->bucket << endl;
+  cout << "frequency " << tuple_top->frequency << endl;
+  
+
+
+
+  uns64 index = tuple_top->bucket;
+  uns64 spill_index; 
+  
+  for(int ii=0; ii<amount_to_relocate; ii++) {
+    uns done = 0;
+
+    while(done != 1) {
+
+      if(index < NUM_BUCKETS_PER_SKEW)
+        spill_index = NUM_BUCKETS_PER_SKEW + mtrand->randInt(NUM_BUCKETS_PER_SKEW-1);
+      else
+        spill_index = mtrand->randInt(NUM_BUCKETS_PER_SKEW-1);
+
+      if(bucket[spill_index].at(0).count < SPILL_THRESHOLD){
+        done = 1; 
+        //remove ball and to spill index
+
+        uns64 ballID = tuple_top->ball_list.front();
+
+        tuple_top->ball_list.erase(tuple_top->ball_list.begin());
+
+        tuple_top->count--;
+        bucket[index].at(0).count--;
+        pq_mfu.heapify_downwards(tuple_top->index_max); 
+
+
+        //now mv ball to spill index aka new bucket
+
+        bucket_tuple* insert_buck = bucket[spill_index].at(1).tuple_ptr;
+        
+        insert_buck->ball_list.push_back(ballID);
+        insert_buck->count++;
+        bucket[spill_index].at(0).count++;
+        insert_buck->access_count = current_timestamp++;
+        insert_buck->frequency++;
+        balls[ballID] = spill_index;
+        pq_mfu.heapify_upwards(insert_buck->index_max);
+
+      }
+    }
+    number_relocations++;
+
+  }
+}
 
 
 
