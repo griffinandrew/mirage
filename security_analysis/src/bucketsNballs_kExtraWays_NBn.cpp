@@ -1442,7 +1442,8 @@ void relocate_mru(void) {
     return;
   }
 
-  uns amount_to_relocate = get_number_to_relocate_8(tuple_top);
+  //uns amount_to_relocate = get_number_to_relocate_8(tuple_top);
+  uns amount_to_relocate = 1;
   if(amount_to_relocate == 0) {
     return;
   }
