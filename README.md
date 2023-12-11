@@ -8,7 +8,7 @@ Gururaj Saileshwar and Moinuddin Qureshi. "MIRAGE: Mitigating Conflict-Based Cac
 ## Griffin Final Project
 To compile and run the experiments mentioned in the report `cd security_analysis ; make all` and `cd bin/; ./mirage8WPS_kExtraWays_NBn.o [number of extra tag] [number of billion tries] [seed] [current number of ways] [number of elements to relocate each time]`. Depending on what experiment or method you wish to evaluate, you need to uncomment all heapify operations corresponding to that method, adjust what heap to push the bucket tuple to, and change the call to relocate to the appropriate method in insert. The experiment will automatically show all distributions created, the probability of the system spilling, and any recorded spill or cuckoo spill.
 
-All methods are included in bucketsNballs_kExtraWays_NBn-all_implementations.cpp, and bucketsNballs_kExtraWays_NBn.cpp shows only the usage for the final implemented methods.
+All methods implemented are included in bucketsNballs_kExtraWays_NBn-all_implementations.cpp. bucketsNballs_kExtraWays_NBn.cpp shows only the usage for the final implemented methods discusses in the paper Max 1 and Mutli, as well as MFU 1 and Multi.
 
 ### Introduction
 The artifact covers two aspects of results from the paper: `cd security_analysis ; make all`
