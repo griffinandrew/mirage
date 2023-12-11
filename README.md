@@ -5,8 +5,13 @@ Appears in USENIX Security 2021.
 ### Citation
 Gururaj Saileshwar and Moinuddin Qureshi. "MIRAGE: Mitigating Conflict-Based Cache Attacks with a Practical Fully-Associative Design". In 30th USENIX Security Symposium (USENIX Security 21). 2021.
 
+## Griffin Final Project
+To compile and run the experiments mentioned in the report `cd security_analysis ; make all` and `cd bin/; ./mirage8WPS_kExtraWays_NBn.o [number of extra tag] [number of billion tries] [seed] [current number of ways] [number of elements to relocate each time]`. Depending on what experiment or method you wish to evaluate, you need to uncomment all heapify operations corresponding to that method, adjust what heap to push the bucket tuple to, and change the call to relocate to the appropriate method in insert. The experiment will automatically show all distributions created, the probability of the system spilling, and any recorded spill or cuckoo spill.
+
+All methods are included in bucketsNballs_kExtraWays_NBn-all_implementations.cpp, and bucketsNballs_kExtraWays_NBn.cpp shows only the usage for the final implemented methods.
+
 ### Introduction
-The artifact covers two aspects of results from the paper:  
+The artifact covers two aspects of results from the paper: `cd security_analysis ; make all`
 
 - **Security Analysis of MIRAGE:** A [Bins and Buckets](https://en.wikipedia.org/wiki/Balls_into_bins_problem) model of the Last-Level-Cache implementing MIRAGE is provided in a C++ program, to quantify its security properties.  This aspect can be easily evaluated on a commodity CPU (perhaps even a laptop with 4-cores/8 threads) in 3-6 hours runtime, without major SW dependencies. Your will be able to recreate all the Security-Analysis related tables and graphs: *Fig-7, Table-1, Fig-9, Fig-10, Table-4*. 
 - **Performance Analysis of MIRAGE:** An implementation of the MIRAGE LLC is provided as a part of the [Gem5 CPU Simulator](https://www.gem5.org/). To run the performance evaluations, a server-grade system is needed (at least 30 threads preferred) and the expected runtime is 12 - 24 hours. You are also required to have access to the SPEC-2006 benchmark suite (we are unable to provide this due to its restrictive license). You will be able to recreate the performance results provided in Appendix-B.  
